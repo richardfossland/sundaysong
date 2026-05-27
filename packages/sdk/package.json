@@ -1,0 +1,20 @@
+{
+  "name": "@sunday/song-sdk",
+  "version": "0.0.1",
+  "description": "Official TypeScript SDK for SundaySong — worship song discovery API",
+  "type": "module",
+  "main": "./src/index.ts",
+  "exports": { ".": "./src/index.ts" },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "lint":      "echo lint placeholder",
+    "test":      "echo test placeholder",
+    "build":     "echo no-build"
+  },
+  "dependencies": {
+    "@sundaysong/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0"
+  }
+}

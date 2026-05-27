@@ -1,0 +1,23 @@
+{
+  "name": "@sundaysong/api",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev":       "bun run --hot src/server.ts",
+    "build":     "bun build src/server.ts --outdir dist --target bun",
+    "start":     "bun run dist/server.js",
+    "typecheck": "tsc --noEmit",
+    "lint":      "echo lint placeholder",
+    "test":      "echo test placeholder"
+  },
+  "dependencies": {
+    "hono": "^4.6.0",
+    "@hono/zod-validator": "^0.4.0",
+    "@sundaysong/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.1.0",
+    "typescript": "^5.7.0"
+  }
+}
