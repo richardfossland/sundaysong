@@ -32,6 +32,7 @@ async function main(): Promise<void> {
         hymnary_id: song.hymnary_id ?? null,
         themes: song.themes ?? [],
       },
+      lyricists: song.lyricists ?? [],
       variant: {
         title: song.variant.title,
         language: song.variant.language,

@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
 
 import { SongSearchQuerySchema, SemanticSearchSchema } from "@sundaysong/shared";
-import { getSql, getSong, getSongsByIds, listVariantsForSong, searchSongsByTitle } from "@sundaysong/db";
+import { getSql, getSong, getSongsByIds, listVariantsForSong, lyricistsForSong, searchSongsByTitle } from "@sundaysong/db";
 import { MeiliClient, SONG_INDEX } from "@sundaysong/search";
 
 export const songsRoutes = new Hono();
@@ -77,6 +77,9 @@ songsRoutes.get("/:id", async (c) => {
   const sql = getSql();
   const song = await getSong(sql, id);
   if (!song) return c.json({ error: "not_found", id }, 404);
-  const variants = await listVariantsForSong(sql, id);
-  return c.json({ ...song, variants });
+  const [variants, lyricists] = await Promise.all([
+    listVariantsForSong(sql, id),
+    lyricistsForSong(sql, id),
+  ]);
+  return c.json({ ...song, variants, lyricists });
 });

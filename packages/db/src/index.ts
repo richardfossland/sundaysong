@@ -27,6 +27,7 @@ export {
   getSongsByIds,
 } from "./repositories/songs";
 export { getChurchLicensing, upsertChurchLicensing } from "./repositories/church";
+export { type PersonRow, upsertPerson, linkLyricist, lyricistsForSong } from "./repositories/persons";
 export { type VariantInput, upsertVariant, listVariantsForSong } from "./repositories/variants";
 export { type LogUsageInput, logUsage, usageForPeriod } from "./repositories/usage";
 export {

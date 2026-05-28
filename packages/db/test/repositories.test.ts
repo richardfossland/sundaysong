@@ -15,6 +15,7 @@ import { upsertSource, getSourceByName } from "../src/repositories/sources";
 import { insertSong, getSong, searchSongsByTitle } from "../src/repositories/songs";
 import { upsertSongWithVariant } from "../src/repositories/ingest";
 import { logUsage, usageForPeriod } from "../src/repositories/usage";
+import { upsertPerson, lyricistsForSong } from "../src/repositories/persons";
 
 const base = process.env.DATABASE_URL ?? DEFAULT_DATABASE_URL;
 const withDb = (db: string) => { const u = new URL(base); u.pathname = "/" + db; return u.toString(); };
@@ -100,6 +101,45 @@ describe("upsertSongWithVariant (connector idempotency anchor)", () => {
     expect(songCount).toBe(1);
     expect(variantCount).toBe(1);
     expect((await getSong(sql, a.song_id))?.canonical_title).toBe("Amazing Grace (rev)");
+  });
+});
+
+describe("persons + lyricist linking", () => {
+  test("upsertPerson dedupes on display name", async () => {
+    const a = await upsertPerson(sql, "Hans Adolph Brorson");
+    const b = await upsertPerson(sql, "Hans Adolph Brorson");
+    expect(a.id).toBe(b.id);
+  });
+
+  test("upsertSongWithVariant links lyricists, idempotently", async () => {
+    const payload = {
+      source_name: "salmebok",
+      source_external_id: "brorson-test",
+      song: { canonical_title: "Den store hvite flokk", original_language: "no", copyright_status: "public_domain" as const },
+      variant: { title: "Den store hvite flokk", language: "no" },
+      lyricists: ["Hans Adolph Brorson"],
+    };
+    const first = await upsertSongWithVariant(sql, payload);
+    await upsertSongWithVariant(sql, payload); // re-import
+
+    const lyricists = await lyricistsForSong(sql, first.song_id);
+    expect(lyricists.map((l) => l.display_name)).toEqual(["Hans Adolph Brorson"]); // no duplicate link
+  });
+
+  test("two songs by the same author share one person row", async () => {
+    const a = await upsertSongWithVariant(sql, {
+      source_name: "salmebok", source_external_id: "blix-a",
+      song: { canonical_title: "No livnar det i lundar", original_language: "nn", copyright_status: "public_domain" },
+      variant: { title: "No livnar det i lundar", language: "nn" }, lyricists: ["Elias Blix"],
+    });
+    const b = await upsertSongWithVariant(sql, {
+      source_name: "salmebok", source_external_id: "blix-b",
+      song: { canonical_title: "Gud signe vårt dyre fedreland", original_language: "nn", copyright_status: "public_domain" },
+      variant: { title: "Gud signe vårt dyre fedreland", language: "nn" }, lyricists: ["Elias Blix"],
+    });
+    const [la] = await lyricistsForSong(sql, a.song_id);
+    const [lb] = await lyricistsForSong(sql, b.song_id);
+    expect(la!.id).toBe(lb!.id);
   });
 });
 

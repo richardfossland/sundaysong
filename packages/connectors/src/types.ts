@@ -39,6 +39,8 @@ export interface NormalizedSong {
   tono_work_id?: string;
   hymnary_id?: string;
   themes?: string[];
+  /** Lyricist display names — linked to the song on import. */
+  lyricists?: string[];
 
   variant: {
     title: string;

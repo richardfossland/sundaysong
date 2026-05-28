@@ -70,6 +70,7 @@ export class SalmebokConnector implements Connector<RawSalmebokHymn> {
       copyright_status: "public_domain",
       year_first_published: raw.year,
       themes: raw.themes,
+      lyricists: [raw.author],
       variant: {
         title: raw.title,
         language: raw.language,

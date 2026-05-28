@@ -26,6 +26,7 @@ describe("SalmebokConnector", () => {
       copyright_status: "public_domain",
     });
     expect(doc.variant.attribution_text).toContain("Elias Blix");
+    expect(doc.lyricists).toEqual(["Elias Blix"]);
     expect(doc.themes).toContain("vår");
   });
 

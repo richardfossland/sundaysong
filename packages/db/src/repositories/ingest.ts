@@ -3,6 +3,7 @@ import type { Executor } from "./types";
 import { upsertSource, type SourceKind } from "./sources";
 import { insertSong, updateSong, type SongInput } from "./songs";
 import { upsertVariant } from "./variants";
+import { upsertPerson, linkLyricist } from "./persons";
 
 export interface UpsertSongWithVariantInput {
   source_name: string;
@@ -18,6 +19,8 @@ export interface UpsertSongWithVariantInput {
     lyrics_excerpt?: string | null;
     attribution_text?: string | null;
   };
+  /** Lyricist display names — find-or-created and linked (idempotent). */
+  lyricists?: string[];
 }
 
 export interface UpsertResult {
@@ -41,24 +44,22 @@ export async function upsertSongWithVariant(sql: Sql, input: UpsertSongWithVaria
       where source_id = ${source.id} and source_external_id = ${input.source_external_id}
     `;
 
-    if (existing[0]) {
-      await updateSong(tx, existing[0].song_id, input.song);
-      const v = await upsertVariant(tx, {
-        ...input.variant,
-        song_id: existing[0].song_id,
-        source_id: source.id,
-        source_external_id: input.source_external_id,
-      });
-      return { song_id: existing[0].song_id, variant_id: v.id, action: "updated" };
-    }
+    const songId = existing[0]
+      ? (await updateSong(tx, existing[0].song_id, input.song), existing[0].song_id)
+      : (await insertSong(tx, input.song)).id;
 
-    const song = await insertSong(tx, input.song);
     const v = await upsertVariant(tx, {
       ...input.variant,
-      song_id: song.id,
+      song_id: songId,
       source_id: source.id,
       source_external_id: input.source_external_id,
     });
-    return { song_id: song.id, variant_id: v.id, action: "added" };
+
+    for (const name of input.lyricists ?? []) {
+      const person = await upsertPerson(tx, name);
+      await linkLyricist(tx, songId, person.id);
+    }
+
+    return { song_id: songId, variant_id: v.id, action: existing[0] ? "updated" : "added" };
   });
 }
