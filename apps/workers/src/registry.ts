@@ -1,12 +1,13 @@
-import { TestConnector, type Connector } from "@sundaysong/connectors";
+import { TestConnector, SalmebokConnector, type Connector } from "@sundaysong/connectors";
 
 /**
  * Connector registry. Adding a source = one entry here (plus the connector
- * itself). The real ones — Hymnary, Norsk salmebok, user uploads — land in
- * Phase 2.2; `test` exercises the pipeline today.
+ * itself). `salmebok` is a real public-domain source; `test` exercises the
+ * pipeline. Hymnary (API) + user uploads are the remaining Phase 2.2 sources.
  */
 export const connectors: Record<string, () => Connector> = {
   test: () => new TestConnector(),
+  salmebok: () => new SalmebokConnector(),
 };
 
 export function getConnector(name: string): Connector {

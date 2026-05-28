@@ -40,3 +40,8 @@ export {
   TestConnector,
   TEST_CATALOG_SIZE,
 } from "./testConnector";
+export {
+  type RawSalmebokHymn,
+  SalmebokConnector,
+  SALMEBOK_CATALOG_SIZE,
+} from "./sources/salmebok";
