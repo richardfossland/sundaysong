@@ -1,3 +1,6 @@
 packages:
   - "apps/*"
   - "packages/*"
+# sharp's native build is unnecessary — the web app uses no next/image.
+allowBuilds:
+  sharp: false
