@@ -14,7 +14,9 @@
   "dependencies": {
     "hono": "^4.6.0",
     "@hono/zod-validator": "^0.4.0",
-    "@sundaysong/shared": "workspace:*"
+    "@sundaysong/shared": "workspace:*",
+    "@sundaysong/music": "workspace:*",
+    "@sundaysong/licensing": "workspace:*"
   },
   "devDependencies": {
     "@types/bun": "^1.1.0",

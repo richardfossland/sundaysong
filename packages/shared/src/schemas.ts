@@ -46,3 +46,59 @@ export const LicensingReportInputSchema = z.object({
   from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
 });
+
+const CopyrightStatusSchema = z.enum(["public_domain", "copyrighted", "unknown"]);
+
+/** Transposition request. Provide chords[] or a chordpro blob, plus a target. */
+export const TransposeInputSchema = z
+  .object({
+    chords: z.array(z.string().min(1).max(24)).max(1000).optional(),
+    chordpro: z.string().max(50000).optional(),
+    from_key: z.string().min(1).max(8),
+    to_key: z.string().min(1).max(8).optional(),
+    semitones: z.number().int().min(-11).max(11).optional(),
+    dialect: z.enum(["international", "german"]).default("international"),
+    nashville: z.boolean().default(false),
+    capo: z.boolean().default(false),
+  })
+  .refine((d) => d.to_key !== undefined || d.semitones !== undefined, {
+    message: "provide either to_key or semitones",
+  })
+  .refine((d) => (d.chords !== undefined) !== (d.chordpro !== undefined), {
+    message: "provide exactly one of chords or chordpro",
+  });
+
+/** Church licensing profile — mirrors @sundaysong/licensing ChurchLicensingProfile. */
+export const ChurchLicensingProfileSchema = z.object({
+  church_id: z.string(),
+  ccli_license_number: z.string().nullable().optional(),
+  ccli_size_category: z.enum(["A", "B", "C", "D", "E", "F"]).nullable().optional(),
+  ccli_streaming_addon: z.boolean(),
+  tono_license_status: z.enum([
+    "none",
+    "state_church_blanket",
+    "direct_agreement",
+    "application_pending",
+    "not_applicable",
+  ]),
+  tono_customer_id: z.string().nullable().optional(),
+  tono_streaming_addon: z.boolean(),
+  denomination: z.enum(["den_norske_kirke", "frikirke", "pinse", "baptist", "metodist", "other"]),
+});
+
+/** Per-song coverage request: enough song metadata to decide the pill. */
+export const CoverageInputSchema = z.object({
+  song: z.object({
+    id: z.string(),
+    canonical_title: z.string(),
+    copyright_status: CopyrightStatusSchema,
+    ccli_song_id: z.string().nullable().optional().default(null),
+    tono_work_id: z.string().nullable().optional().default(null),
+    tono_registered: z.boolean().default(false),
+    nordic_metadata: z
+      .object({ copyright_status_no: CopyrightStatusSchema.optional() })
+      .passthrough()
+      .default({}),
+  }),
+  profile: ChurchLicensingProfileSchema,
+});

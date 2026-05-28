@@ -14,6 +14,7 @@ import { songsRoutes } from "./routes/songs";
 import { recommendRoutes } from "./routes/recommend";
 import { usageRoutes } from "./routes/usage";
 import { licensingRoutes } from "./routes/licensing";
+import { transposeRoutes } from "./routes/transpose";
 
 const app = new Hono();
 
@@ -40,6 +41,7 @@ app.route("/v1/songs",        songsRoutes);
 app.route("/v1/recommend",    recommendRoutes);
 app.route("/v1/usage",        usageRoutes);
 app.route("/v1/licensing",    licensingRoutes);
+app.route("/v1/transpose",    transposeRoutes);
 
 app.notFound((c) => c.json({ error: "not_found" }, 404));
 app.onError((err, c) => {

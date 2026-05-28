@@ -97,6 +97,13 @@ export class SundaySong {
       body: JSON.stringify(input),
     });
 
+  /** Instant transposition — re-key chords or a ChordPro chart. */
+  readonly transpose = (input: TransposeInput): Promise<TransposeResult> =>
+    this.request("/v1/transpose", {
+      method: "POST",
+      body: JSON.stringify(input),
+    });
+
   readonly usage = {
     log: (row: UsageLogPayload) =>
       this.request<{ ok: true; idempotency_key: string }>("/v1/usage/log", {
@@ -111,7 +118,86 @@ export class SundaySong {
         method: "POST",
         body: JSON.stringify(input),
       }),
+    /** Per-song CCLI/TONO coverage for the song pill. */
+    coverage: (input: CoverageInput): Promise<SongCoverageResult> =>
+      this.request("/v1/licensing/coverage", {
+        method: "POST",
+        body: JSON.stringify(input),
+      }),
   };
+}
+
+export type MusicDialect = "international" | "german";
+
+export interface TransposeInput {
+  /** Provide exactly one of `chords` or `chordpro`. */
+  chords?: string[];
+  chordpro?: string;
+  from_key: string;
+  /** Provide either `to_key` or `semitones`. */
+  to_key?: string;
+  semitones?: number;
+  dialect?: MusicDialect;
+  /** Also return Nashville numbers for the source chords. */
+  nashville?: boolean;
+  /** Also return capo suggestions for the target key. */
+  capo?: boolean;
+}
+
+export interface CapoSuggestion {
+  capo: number;
+  playAs: string;
+}
+
+export interface TransposeResult {
+  from_key: string;
+  to_key: string;
+  semitones: number;
+  chords?: string[];
+  chordpro?: string;
+  nashville?: Array<string | null>;
+  capo?: CapoSuggestion[];
+}
+
+export type CoverageStatus =
+  | "covered"
+  | "not_covered"
+  | "unknown"
+  | "not_required"
+  | "foreign_reciprocal";
+
+export interface CoverageInput {
+  song: {
+    id: string;
+    canonical_title: string;
+    copyright_status: "public_domain" | "copyrighted" | "unknown";
+    ccli_song_id?: string | null;
+    tono_work_id?: string | null;
+    tono_registered?: boolean;
+    nordic_metadata?: { copyright_status_no?: "public_domain" | "copyrighted" | "unknown" };
+  };
+  profile: {
+    church_id: string;
+    ccli_license_number?: string | null;
+    ccli_size_category?: "A" | "B" | "C" | "D" | "E" | "F" | null;
+    ccli_streaming_addon: boolean;
+    tono_license_status:
+      | "none"
+      | "state_church_blanket"
+      | "direct_agreement"
+      | "application_pending"
+      | "not_applicable";
+    tono_customer_id?: string | null;
+    tono_streaming_addon: boolean;
+    denomination: "den_norske_kirke" | "frikirke" | "pinse" | "baptist" | "metodist" | "other";
+  };
+}
+
+export interface SongCoverageResult {
+  song_id: string;
+  ccli_status: CoverageStatus;
+  tono_status: CoverageStatus;
+  gray_areas: string[];
 }
 
 export interface SearchParams {
