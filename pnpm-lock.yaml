@@ -32,6 +32,9 @@ importers:
       '@sundaysong/music':
         specifier: workspace:*
         version: link:../../packages/music
+      '@sundaysong/search':
+        specifier: workspace:*
+        version: link:../../packages/search
       '@sundaysong/shared':
         specifier: workspace:*
         version: link:../../packages/shared
@@ -85,6 +88,9 @@ importers:
       '@sundaysong/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@sundaysong/search':
+        specifier: workspace:*
+        version: link:../../packages/search
       '@sundaysong/shared':
         specifier: workspace:*
         version: link:../../packages/shared
@@ -166,6 +172,19 @@ importers:
         specifier: workspace:*
         version: link:../shared
     devDependencies:
+      typescript:
+        specifier: ^5.7.0
+        version: 5.9.3
+
+  packages/search:
+    dependencies:
+      '@sundaysong/shared':
+        specifier: workspace:*
+        version: link:../shared
+    devDependencies:
+      '@types/bun':
+        specifier: ^1.1.0
+        version: 1.3.14
       typescript:
         specifier: ^5.7.0
         version: 5.9.3

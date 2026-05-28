@@ -1,19 +1,17 @@
 {
-  "name": "@sundaysong/workers",
+  "name": "@sundaysong/search",
   "version": "0.0.1",
   "private": true,
   "type": "module",
+  "main": "./src/index.ts",
+  "exports": { ".": "./src/index.ts" },
   "scripts": {
-    "sync":      "bun run src/sync.ts",
-    "index":     "bun run src/index-songs.ts",
     "typecheck": "tsc --noEmit",
     "lint":      "echo lint placeholder",
-    "test":      "echo no tests yet"
+    "test":      "bun test",
+    "build":     "echo no-build"
   },
   "dependencies": {
-    "@sundaysong/connectors": "workspace:*",
-    "@sundaysong/db": "workspace:*",
-    "@sundaysong/search": "workspace:*",
     "@sundaysong/shared": "workspace:*"
   },
   "devDependencies": {

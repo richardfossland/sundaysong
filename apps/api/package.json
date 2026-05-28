@@ -18,7 +18,8 @@
     "@sundaysong/music": "workspace:*",
     "@sundaysong/licensing": "workspace:*",
     "@sundaysong/matching": "workspace:*",
-    "@sundaysong/db": "workspace:*"
+    "@sundaysong/db": "workspace:*",
+    "@sundaysong/search": "workspace:*"
   },
   "devDependencies": {
     "@types/bun": "^1.1.0",

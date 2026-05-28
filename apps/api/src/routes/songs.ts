@@ -2,25 +2,62 @@ import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
 
 import { SongSearchQuerySchema, SemanticSearchSchema } from "@sundaysong/shared";
-import { getSql, getSong, listVariantsForSong, searchSongsByTitle } from "@sundaysong/db";
+import { getSql, getSong, getSongsByIds, listVariantsForSong, searchSongsByTitle } from "@sundaysong/db";
+import { MeiliClient, SONG_INDEX } from "@sundaysong/search";
 
 export const songsRoutes = new Hono();
+
+// Quote + escape a value for a Meilisearch filter (prevents filter injection).
+const filterValue = (v: string) => `"${v.replace(/"/g, '\\"')}"`;
 
 // GET /v1/songs/search?q=&language=&themes=&page=&page_size=
 songsRoutes.get("/search", zValidator("query", SongSearchQuerySchema), async (c) => {
   const q = c.req.valid("query");
   const sql = getSql();
-  const songs = await searchSongsByTitle(sql, q.q, q.page_size);
-  const hits = await Promise.all(
-    songs.map(async (song) => ({
-      song,
-      variants: await listVariantsForSong(sql, song.id),
-      translations: [],
-      match_reason: "text" as const,
-      score: 1,
-    })),
-  );
-  return c.json({ hits, total: hits.length, page: q.page, page_size: q.page_size });
+
+  try {
+    const filters: string[] = [];
+    if (q.language) filters.push(`languages = ${filterValue(q.language)}`);
+    if (q.themes?.length) filters.push(`themes IN [${q.themes.map(filterValue).join(", ")}]`);
+
+    const meili = new MeiliClient();
+    const res = await meili.search<{ id: string }>(SONG_INDEX, {
+      q: q.q,
+      filter: filters.length ? filters.join(" AND ") : undefined,
+      limit: q.page_size,
+      offset: q.page * q.page_size,
+    });
+
+    const ids = res.hits.map((h) => h.id);
+    const byId = new Map((await getSongsByIds(sql, ids)).map((s) => [s.id, s]));
+    const hits = [];
+    for (const id of ids) {
+      const song = byId.get(id);
+      if (!song) continue; // index/DB drift — skip rather than 500
+      hits.push({
+        song,
+        variants: await listVariantsForSong(sql, id),
+        translations: [],
+        match_reason: "text" as const,
+        score: 1,
+      });
+    }
+    return c.json({ hits, total: res.estimatedTotalHits, page: q.page, page_size: q.page_size, engine: "meilisearch" });
+  } catch {
+    // Meilisearch unavailable → fall back to the Postgres trigram search so the
+    // endpoint keeps working (degraded: no facets, no typo tolerance).
+    const songs = await searchSongsByTitle(sql, q.q, q.page_size);
+    const hits = await Promise.all(
+      songs.map(async (song) => ({
+        song,
+        variants: await listVariantsForSong(sql, song.id),
+        translations: [],
+        match_reason: "text" as const,
+        score: 1,
+      })),
+    );
+    return c.json({ hits, total: hits.length, page: q.page, page_size: q.page_size, engine: "postgres_fallback" });
+  }
 });
 
 // POST /v1/songs/semantic-search
