@@ -1,0 +1,20 @@
+{
+  "name": "@sundaysong/workers",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "sync":      "bun run src/sync.ts",
+    "typecheck": "tsc --noEmit",
+    "lint":      "echo lint placeholder",
+    "test":      "echo no tests yet"
+  },
+  "dependencies": {
+    "@sundaysong/connectors": "workspace:*",
+    "@sundaysong/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.1.0",
+    "typescript": "^5.7.0"
+  }
+}
