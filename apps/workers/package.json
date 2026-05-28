@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@sundaysong/connectors": "workspace:*",
+    "@sundaysong/db": "workspace:*",
     "@sundaysong/shared": "workspace:*"
   },
   "devDependencies": {

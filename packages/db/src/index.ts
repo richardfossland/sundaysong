@@ -7,3 +7,28 @@
 
 export { sortMigrations, computePending } from "./planner";
 export { DEFAULT_DATABASE_URL, MIGRATIONS_DIR } from "./config";
+export { type Sql, createSql, getSql } from "./sql";
+
+export type { Executor } from "./repositories/types";
+export {
+  type SourceRow,
+  type SourceKind,
+  type UpsertSourceInput,
+  upsertSource,
+  getSourceByName,
+} from "./repositories/sources";
+export {
+  type SongInput,
+  insertSong,
+  updateSong,
+  getSong,
+  searchSongsByTitle,
+  listSongs,
+} from "./repositories/songs";
+export { type VariantInput, upsertVariant, listVariantsForSong } from "./repositories/variants";
+export { type LogUsageInput, logUsage, usageForPeriod } from "./repositories/usage";
+export {
+  type UpsertSongWithVariantInput,
+  type UpsertResult,
+  upsertSongWithVariant,
+} from "./repositories/ingest";

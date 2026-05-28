@@ -79,6 +79,9 @@ importers:
       '@sundaysong/connectors':
         specifier: workspace:*
         version: link:../../packages/connectors
+      '@sundaysong/db':
+        specifier: workspace:*
+        version: link:../../packages/db
       '@sundaysong/shared':
         specifier: workspace:*
         version: link:../../packages/shared
@@ -104,6 +107,10 @@ importers:
         version: 5.9.3
 
   packages/db:
+    dependencies:
+      '@sundaysong/shared':
+        specifier: workspace:*
+        version: link:../shared
     devDependencies:
       '@types/bun':
         specifier: ^1.1.0

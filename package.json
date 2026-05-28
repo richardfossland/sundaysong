@@ -16,6 +16,7 @@
     "db:down":    "docker compose -f infra/dev/docker-compose.yml down",
     "db:reset":   "docker compose -f infra/dev/docker-compose.yml down -v",
     "db:migrate": "pnpm --filter @sundaysong/db migrate",
+    "db:seed":    "pnpm --filter @sundaysong/db seed",
     "db:check":   "pnpm --filter @sundaysong/db check"
   },
   "devDependencies": {

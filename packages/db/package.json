@@ -7,10 +7,14 @@
   "exports": { ".": "./src/index.ts" },
   "scripts": {
     "migrate":   "bun run src/migrate.ts",
+    "seed":      "bun run src/seed.ts",
     "check":     "bun run src/check.ts",
     "typecheck": "tsc --noEmit",
     "lint":      "echo lint placeholder",
     "test":      "bun test"
+  },
+  "dependencies": {
+    "@sundaysong/shared": "workspace:*"
   },
   "devDependencies": {
     "@types/bun": "^1.1.0",
