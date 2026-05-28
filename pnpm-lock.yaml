@@ -103,6 +103,15 @@ importers:
         specifier: ^5.7.0
         version: 5.9.3
 
+  packages/db:
+    devDependencies:
+      '@types/bun':
+        specifier: ^1.1.0
+        version: 1.3.14
+      typescript:
+        specifier: ^5.7.0
+        version: 5.9.3
+
   packages/licensing:
     dependencies:
       '@sundaysong/shared':

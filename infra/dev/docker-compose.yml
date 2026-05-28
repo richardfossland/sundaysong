@@ -1,0 +1,54 @@
+# SundaySong — local dev stack.
+#
+#   pnpm db:up        # start postgres + meilisearch + redis
+#   pnpm db:migrate   # apply packages/db/migrations
+#   pnpm db:check     # confirm extensions + tables exist
+#   pnpm db:down      # stop (add -v to also drop volumes)
+#
+# Defaults are baked in so it runs with zero config; override via a root .env
+# (see .env.example). Postgres uses the pgvector image so the `vector`
+# extension the schema needs is already present.
+name: sundaysong-dev
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: sundaysong-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-sunday}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-sunday}
+      POSTGRES_DB: ${POSTGRES_DB:-sundaysong}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - sundaysong_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-sunday} -d ${POSTGRES_DB:-sundaysong}"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  meilisearch:
+    image: getmeili/meilisearch:v1.10
+    container_name: sundaysong-meili
+    environment:
+      MEILI_MASTER_KEY: ${MEILI_MASTER_KEY:-dev_meili_master_key_change_me}
+      MEILI_ENV: development
+      MEILI_NO_ANALYTICS: "true"
+    ports:
+      - "${MEILI_PORT:-7700}:7700"
+    volumes:
+      - sundaysong_meili:/meili_data
+
+  redis:
+    image: redis:7-alpine
+    container_name: sundaysong-redis
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - sundaysong_redis:/data
+
+volumes:
+  sundaysong_pg:
+  sundaysong_meili:
+  sundaysong_redis:
