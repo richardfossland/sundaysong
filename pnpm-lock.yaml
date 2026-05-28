@@ -23,6 +23,9 @@ importers:
       '@sundaysong/licensing':
         specifier: workspace:*
         version: link:../../packages/licensing
+      '@sundaysong/matching':
+        specifier: workspace:*
+        version: link:../../packages/matching
       '@sundaysong/music':
         specifier: workspace:*
         version: link:../../packages/music
@@ -70,6 +73,19 @@ importers:
         version: 5.9.3
 
   packages/licensing:
+    dependencies:
+      '@sundaysong/shared':
+        specifier: workspace:*
+        version: link:../shared
+    devDependencies:
+      '@types/bun':
+        specifier: ^1.1.0
+        version: 1.3.14
+      typescript:
+        specifier: ^5.7.0
+        version: 5.9.3
+
+  packages/matching:
     dependencies:
       '@sundaysong/shared':
         specifier: workspace:*

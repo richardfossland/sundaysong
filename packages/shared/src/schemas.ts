@@ -86,6 +86,30 @@ export const ChurchLicensingProfileSchema = z.object({
   denomination: z.enum(["den_norske_kirke", "frikirke", "pinse", "baptist", "metodist", "other"]),
 });
 
+/** Song metadata the cross-language matcher reads (mirrors MatchSong). */
+export const MatchSongSchema = z.object({
+  id: z.string(),
+  canonical_title: z.string().min(1).max(300),
+  language: z.string().min(2).max(8),
+  themes: z.array(z.string()).max(64).optional(),
+  bible_refs: z.array(z.string()).max(64).optional(),
+  year_first_published: z.number().int().min(0).max(3000).nullable().optional(),
+  composer_ids: z.array(z.string()).max(32).optional(),
+  ccli_song_id: z.string().nullable().optional(),
+  tono_work_id: z.string().nullable().optional(),
+});
+
+export const MatchScoreInputSchema = z.object({
+  a: MatchSongSchema,
+  b: MatchSongSchema,
+});
+
+export const MatchCandidatesInputSchema = z.object({
+  target: MatchSongSchema,
+  pool: z.array(MatchSongSchema).max(500),
+  min_confidence: z.number().min(0).max(1).optional(),
+});
+
 /** Per-song coverage request: enough song metadata to decide the pill. */
 export const CoverageInputSchema = z.object({
   song: z.object({

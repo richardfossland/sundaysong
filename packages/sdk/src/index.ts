@@ -125,6 +125,21 @@ export class SundaySong {
         body: JSON.stringify(input),
       }),
   };
+
+  /** Cross-language translation matching (Phase 3.3). */
+  readonly matching = {
+    score: (input: { a: MatchSongInput; b: MatchSongInput }): Promise<CandidateScoreResult> =>
+      this.request("/v1/matching/score", {
+        method: "POST",
+        body: JSON.stringify(input),
+      }),
+    candidates: (input: { target: MatchSongInput; pool: MatchSongInput[]; min_confidence?: number }):
+      Promise<{ target_id: string; candidates: CandidateScoreResult[] }> =>
+      this.request("/v1/matching/candidates", {
+        method: "POST",
+        body: JSON.stringify(input),
+      }),
+  };
 }
 
 export type MusicDialect = "international" | "german";
@@ -198,6 +213,26 @@ export interface SongCoverageResult {
   ccli_status: CoverageStatus;
   tono_status: CoverageStatus;
   gray_areas: string[];
+}
+
+export interface MatchSongInput {
+  id: string;
+  canonical_title: string;
+  language: string;
+  themes?: string[];
+  bible_refs?: string[];
+  year_first_published?: number | null;
+  composer_ids?: string[];
+  ccli_song_id?: string | null;
+  tono_work_id?: string | null;
+}
+
+export interface CandidateScoreResult {
+  a_id: string;
+  b_id: string;
+  confidence: number;
+  recommendation: "auto_link" | "propose" | "reject";
+  signals: Array<{ name: string; weight: number; detail?: string }>;
 }
 
 export interface SearchParams {
