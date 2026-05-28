@@ -6,10 +6,11 @@
  */
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { createSql, type Sql } from "../src/sql";
 import { DEFAULT_DATABASE_URL, MIGRATIONS_DIR } from "../src/config";
+import { sortMigrations } from "../src/planner";
 import { upsertSource, getSourceByName } from "../src/repositories/sources";
 import { insertSong, getSong, searchSongsByTitle } from "../src/repositories/songs";
 import { upsertSongWithVariant } from "../src/repositories/ingest";
@@ -28,8 +29,9 @@ beforeAll(async () => {
   await admin`drop database if exists sundaysong_test with (force)`;
   await admin`create database sundaysong_test`;
   sql = createSql(testUrl);
-  const schema = readFileSync(join(MIGRATIONS_DIR, "0001_core.sql"), "utf8");
-  await sql.unsafe(schema);
+  for (const file of sortMigrations(readdirSync(MIGRATIONS_DIR))) {
+    await sql.unsafe(readFileSync(join(MIGRATIONS_DIR, file), "utf8"));
+  }
 });
 
 afterAll(async () => {

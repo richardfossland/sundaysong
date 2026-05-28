@@ -24,7 +24,9 @@ export {
   getSong,
   searchSongsByTitle,
   listSongs,
+  getSongsByIds,
 } from "./repositories/songs";
+export { getChurchLicensing, upsertChurchLicensing } from "./repositories/church";
 export { type VariantInput, upsertVariant, listVariantsForSong } from "./repositories/variants";
 export { type LogUsageInput, logUsage, usageForPeriod } from "./repositories/usage";
 export {

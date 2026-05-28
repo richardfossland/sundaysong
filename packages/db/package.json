@@ -14,7 +14,8 @@
     "test":      "bun test"
   },
   "dependencies": {
-    "@sundaysong/shared": "workspace:*"
+    "@sundaysong/shared": "workspace:*",
+    "@sundaysong/licensing": "workspace:*"
   },
   "devDependencies": {
     "@types/bun": "^1.1.0",

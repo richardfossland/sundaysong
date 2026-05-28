@@ -5,4 +5,6 @@
  */
 export interface Executor {
   <T = unknown>(strings: TemplateStringsArray, ...values: unknown[]): Promise<T>;
+  /** Helper form: `sql(array)` builds an IN-list / value fragment. */
+  (value: readonly unknown[]): unknown;
 }

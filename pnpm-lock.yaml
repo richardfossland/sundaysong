@@ -20,6 +20,9 @@ importers:
       '@hono/zod-validator':
         specifier: ^0.4.0
         version: 0.4.3(hono@4.12.23)(zod@3.25.76)
+      '@sundaysong/db':
+        specifier: workspace:*
+        version: link:../../packages/db
       '@sundaysong/licensing':
         specifier: workspace:*
         version: link:../../packages/licensing
@@ -108,6 +111,9 @@ importers:
 
   packages/db:
     dependencies:
+      '@sundaysong/licensing':
+        specifier: workspace:*
+        version: link:../licensing
       '@sundaysong/shared':
         specifier: workspace:*
         version: link:../shared

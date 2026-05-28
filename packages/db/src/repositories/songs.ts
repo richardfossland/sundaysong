@@ -69,3 +69,8 @@ export async function searchSongsByTitle(sql: Executor, q: string, limit = 20): 
 export async function listSongs(sql: Executor, limit = 50): Promise<Song[]> {
   return await sql<Song[]>`select * from song order by created_at desc limit ${limit}`;
 }
+
+export async function getSongsByIds(sql: Executor, ids: string[]): Promise<Song[]> {
+  if (ids.length === 0) return [];
+  return await sql<Song[]>`select * from song where id in ${sql(ids)}`;
+}

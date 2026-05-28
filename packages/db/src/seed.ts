@@ -12,6 +12,20 @@
 import { createSql } from "./sql";
 import { upsertSource, type SourceKind } from "./repositories/sources";
 import { upsertSongWithVariant, type UpsertSongWithVariantInput } from "./repositories/ingest";
+import { upsertChurchLicensing } from "./repositories/church";
+import { logUsage } from "./repositories/usage";
+
+/** Demo church for the licensing report — a frikirke with CCLI + direct TONO. */
+export const DEMO_CHURCH_ID = "11111111-1111-1111-1111-111111111111";
+
+interface SeedUsage { title: string; date: string; streamed: boolean; key: string }
+const USAGE: SeedUsage[] = [
+  { title: "How Great Is Our God", date: "2026-04-05", streamed: false, key: "seed-u1" },
+  { title: "How Great Is Our God", date: "2026-04-12", streamed: true, key: "seed-u2" },
+  { title: "Oceans (Where Feet May Fail)", date: "2026-04-12", streamed: false, key: "seed-u3" },
+  { title: "Deg være ære", date: "2026-04-19", streamed: false, key: "seed-u4" },
+  { title: "10,000 Reasons (Bless the Lord)", date: "2026-04-26", streamed: true, key: "seed-u5" },
+];
 
 const SOURCES: Array<{ name: string; kind: SourceKind; attribution_template: string }> = [
   { name: "hymnary", kind: "api", attribution_template: "Content from Hymnary.org" },
@@ -71,11 +85,39 @@ async function main(): Promise<void> {
     for (const s of SOURCES) await upsertSource(sql, s);
     let added = 0;
     let updated = 0;
+    const songIdByTitle = new Map<string, string>();
     for (const song of SONGS) {
       const r = await upsertSongWithVariant(sql, song);
+      songIdByTitle.set(song.song.canonical_title, r.song_id);
       if (r.action === "added") added += 1; else updated += 1;
     }
     console.log(`✓ seeded ${SOURCES.length} sources, ${SONGS.length} songs (${added} added, ${updated} updated)`);
+
+    await upsertChurchLicensing(sql, {
+      church_id: DEMO_CHURCH_ID,
+      ccli_license_number: "CCLI-DEMO-001",
+      ccli_size_category: "B",
+      ccli_streaming_addon: true,
+      tono_license_status: "direct_agreement",
+      tono_customer_id: "TONO-DEMO",
+      tono_streaming_addon: true,
+      denomination: "frikirke",
+    });
+
+    let logged = 0;
+    for (const u of USAGE) {
+      const songId = songIdByTitle.get(u.title);
+      if (!songId) continue;
+      const r = await logUsage(sql, {
+        church_id: DEMO_CHURCH_ID,
+        song_id: songId,
+        service_date: u.date,
+        was_streamed: u.streamed,
+        idempotency_key: u.key,
+      });
+      if (r.logged) logged += 1;
+    }
+    console.log(`✓ seeded demo church ${DEMO_CHURCH_ID} + ${USAGE.length} usage rows (${logged} new)`);
   } finally {
     await sql.end();
   }

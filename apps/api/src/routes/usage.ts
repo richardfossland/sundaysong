@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
 
 import { UsageLogInputSchema } from "@sundaysong/shared";
+import { getSql, logUsage } from "@sundaysong/db";
 
 export const usageRoutes = new Hono();
 
@@ -19,7 +20,8 @@ usageRoutes.post(
   zValidator("json", UsageLogInputSchema),
   async (c) => {
     const row = c.req.valid("json");
-    // TODO Phase 7.2 — write to usage_log with conflict-on-idempotency-key
-    return c.json({ ok: true, idempotency_key: row.idempotency_key });
+    const { logged } = await logUsage(getSql(), row);
+    // logged=false means the idempotency key was already recorded — a no-op.
+    return c.json({ ok: true, idempotency_key: row.idempotency_key, logged });
   },
 );

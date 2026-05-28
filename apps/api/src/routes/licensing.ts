@@ -2,7 +2,8 @@ import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
 
 import { LicensingReportInputSchema, CoverageInputSchema } from "@sundaysong/shared";
-import { computeCoverage } from "@sundaysong/licensing";
+import { computeCoverage, buildLicensingReport } from "@sundaysong/licensing";
+import { getSql, getChurchLicensing, usageForPeriod, getSongsByIds } from "@sundaysong/db";
 
 export const licensingRoutes = new Hono();
 
@@ -39,16 +40,18 @@ licensingRoutes.post(
   zValidator("json", LicensingReportInputSchema),
   async (c) => {
     const { church_id, from, to } = c.req.valid("json");
-    // The report engine (buildLicensingReport in @sundaysong/licensing) is
-    // built and tested; this route stays stubbed only until the usage_log +
-    // song queries land with the repository layer (Phase 1.2).
-    return c.json({
-      church_id,
-      period_from: from,
-      period_to: to,
-      ccli_rows: [],
-      tono_rows: [],
-      coverage_warnings: ["stub — usage_log + song aggregation lands with the repository layer (Phase 1.2)"],
-    });
+    const sql = getSql();
+
+    const profile = await getChurchLicensing(sql, church_id);
+    if (!profile) {
+      return c.json({ error: "no_licensing_profile", message: "No licensing profile on file for this church." }, 404);
+    }
+
+    const usage = await usageForPeriod(sql, church_id, from, to);
+    const songIds = [...new Set(usage.map((u) => u.song_id))];
+    const songs = await getSongsByIds(sql, songIds);
+
+    const report = buildLicensingReport({ profile, songs, usage, period: { from, to } });
+    return c.json(report);
   },
 );

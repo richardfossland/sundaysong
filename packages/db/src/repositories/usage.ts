@@ -27,7 +27,12 @@ export async function logUsage(sql: Executor, input: LogUsageInput): Promise<{ l
   return { logged: rows.length > 0 };
 }
 
-/** Usage rows for a church within an inclusive date range — feeds licensing reports. */
+/**
+ * Usage rows for a church within an inclusive date range — feeds licensing
+ * reports. `service_date` is cast to text so it stays an ISO `YYYY-MM-DD`
+ * string (Bun.SQL otherwise hydrates a `date` column into a JS Date, which the
+ * licensing engine's string comparisons + grouping don't expect).
+ */
 export async function usageForPeriod(
   sql: Executor,
   churchId: string,
@@ -35,7 +40,9 @@ export async function usageForPeriod(
   to: string,
 ): Promise<UsageLogRow[]> {
   return await sql<UsageLogRow[]>`
-    select * from usage_log
+    select id, church_id, song_id, variant_id, service_date::text as service_date,
+           duration_displayed_sec, was_streamed, idempotency_key, recorded_at
+    from usage_log
     where church_id = ${churchId} and service_date between ${from} and ${to}
     order by service_date
   `;
