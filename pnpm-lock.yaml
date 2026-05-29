@@ -20,6 +20,9 @@ importers:
       '@hono/zod-validator':
         specifier: ^0.4.0
         version: 0.4.3(hono@4.12.23)(zod@3.25.76)
+      '@sundaysong/ai':
+        specifier: workspace:*
+        version: link:../../packages/ai
       '@sundaysong/db':
         specifier: workspace:*
         version: link:../../packages/db
@@ -82,6 +85,9 @@ importers:
 
   apps/workers:
     dependencies:
+      '@sundaysong/ai':
+        specifier: workspace:*
+        version: link:../../packages/ai
       '@sundaysong/connectors':
         specifier: workspace:*
         version: link:../../packages/connectors
@@ -94,6 +100,19 @@ importers:
       '@sundaysong/shared':
         specifier: workspace:*
         version: link:../../packages/shared
+    devDependencies:
+      '@types/bun':
+        specifier: ^1.1.0
+        version: 1.3.14
+      typescript:
+        specifier: ^5.7.0
+        version: 5.9.3
+
+  packages/ai:
+    dependencies:
+      '@sundaysong/shared':
+        specifier: workspace:*
+        version: link:../shared
     devDependencies:
       '@types/bun':
         specifier: ^1.1.0

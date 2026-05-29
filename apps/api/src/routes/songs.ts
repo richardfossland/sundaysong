@@ -2,10 +2,15 @@ import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
 
 import { SongSearchQuerySchema, SemanticSearchSchema } from "@sundaysong/shared";
-import { getSql, getSong, getSongsByIds, listVariantsForSong, lyricistsForSong, searchSongsByTitle, translationsForSong, translationsForSongs } from "@sundaysong/db";
+import { getSql, getSong, getSongsByIds, listVariantsForSong, lyricistsForSong, searchSongsByTitle, translationsForSong, translationsForSongs, nearestSongs } from "@sundaysong/db";
 import { MeiliClient, SONG_INDEX } from "@sundaysong/search";
+import { getEmbedder } from "@sundaysong/ai";
 
 export const songsRoutes = new Hono();
+
+// Flatten translation rows into the lean shape search/semantic hits carry.
+const slimTranslations = (links: Array<{ language: string; song_id: string; title: string }>) =>
+  links.map((t) => ({ language: t.language, song_id: t.song_id, title: t.title }));
 
 // Quote + escape a value for a Meilisearch filter (prevents filter injection).
 const filterValue = (v: string) => `"${v.replace(/"/g, '\\"')}"`;
@@ -71,14 +76,36 @@ songsRoutes.get("/search", zValidator("query", SongSearchQuerySchema), async (c)
 });
 
 // POST /v1/songs/semantic-search
+//   Embeds the query and finds the nearest songs via the pgvector HNSW index.
+//   Run the embedding worker first (`pnpm embed`) so vectors exist.
 songsRoutes.post("/semantic-search", zValidator("json", SemanticSearchSchema), async (c) => {
   const body = c.req.valid("json");
-  // Embedding + pgvector similarity lands in Phase 3.2 (needs an embedding model).
-  return c.json({
-    hits: [],
-    query: body.query,
-    note: "stub — embedding + pgvector wiring lands in Phase 3.2",
+  const sql = getSql();
+  const embedder = getEmbedder();
+
+  const [qvec] = await embedder.embed([body.query]);
+  const near = await nearestSongs(sql, {
+    vector: qvec!,
+    k: 20,
+    model_version: embedder.modelVersion,
+    language: body.language,
   });
+
+  const translationsById = await translationsForSongs(sql, near.map((n) => n.id));
+  const hits = await Promise.all(
+    near.map(async (n) => {
+      const { score, ...song } = n;
+      return {
+        song,
+        variants: await listVariantsForSong(sql, song.id),
+        translations: slimTranslations(translationsById.get(song.id) ?? []),
+        match_reason: "semantic" as const,
+        score,
+        semantic_label: `Songs that mean something like “${body.query}”`,
+      };
+    }),
+  );
+  return c.json({ hits, query: body.query, model: embedder.modelVersion });
 });
 
 // GET /v1/songs/:id

@@ -6,11 +6,13 @@
   "scripts": {
     "sync":      "bun run src/sync.ts",
     "index":     "bun run src/index-songs.ts",
+    "embed":     "bun run src/embed-songs.ts",
     "typecheck": "tsc --noEmit",
     "lint":      "echo lint placeholder",
     "test":      "echo no tests yet"
   },
   "dependencies": {
+    "@sundaysong/ai": "workspace:*",
     "@sundaysong/connectors": "workspace:*",
     "@sundaysong/db": "workspace:*",
     "@sundaysong/search": "workspace:*",

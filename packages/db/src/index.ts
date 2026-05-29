@@ -40,6 +40,15 @@ export {
 export { type VariantInput, upsertVariant, listVariantsForSong } from "./repositories/variants";
 export { type LogUsageInput, logUsage, usageForPeriod } from "./repositories/usage";
 export {
+  type EmbeddingEntity,
+  type UpsertEmbeddingInput,
+  type NearestSong,
+  type NearestSongsInput,
+  upsertEmbedding,
+  nearestSongs,
+  songsMissingEmbedding,
+} from "./repositories/embeddings";
+export {
   type UpsertSongWithVariantInput,
   type UpsertResult,
   upsertSongWithVariant,

@@ -11,3 +11,11 @@ export function toPgTextArray(values: string[]): string {
   const escaped = values.map((v) => '"' + v.replace(/\\/g, "\\\\").replace(/"/g, '\\"') + '"');
   return "{" + escaped.join(",") + "}";
 }
+
+/**
+ * pgvector wants its input as a bracketed literal `[0.1,0.2,...]` cast `::vector`.
+ * Same Bun.SQL gotcha as text[]: a raw JS array would serialize to a bare CSV.
+ */
+export function toPgVector(values: number[]): string {
+  return "[" + values.join(",") + "]";
+}

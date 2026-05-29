@@ -18,7 +18,8 @@
     "db:migrate": "pnpm --filter @sundaysong/db migrate",
     "db:seed":    "pnpm --filter @sundaysong/db seed",
     "db:check":   "pnpm --filter @sundaysong/db check",
-    "search:index": "pnpm --filter @sundaysong/workers index"
+    "search:index": "pnpm --filter @sundaysong/workers index",
+    "embed":      "pnpm --filter @sundaysong/workers embed"
   },
   "devDependencies": {
     "turbo": "^2.3.0",
