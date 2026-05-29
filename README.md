@@ -2,7 +2,24 @@
 
 Worship song discovery + AI intelligence service — part of the **Sunday suite** alongside [SundayRec](https://github.com/richardfossland/sundayrec), SundayStage, and SundayPlan.
 
-> ⚠️ **Status:** Phase 0–1 scaffold. Postgres schema written, shared types + SDK contract published, Hono/Bun API skeleton boots with stub routes. Real ingestion + Meilisearch + embeddings + AI features all pending.
+> 🧪 **Status: v0.1.0-beta — testable.** Full catalog + search spine working:
+> full-text **and** semantic search, cross-language translations, transposition,
+> CCLI/TONO licensing + CSV export, catalog-grounded recommendations, the public
+> REST API + TypeScript SDK, and the web app. ~166 tests; CI green on every push.
+
+## Quick start (test the release)
+
+Requires Docker. One command brings up the whole thing:
+
+```bash
+docker compose up --build
+```
+
+Then open **http://localhost:3000** (web) and **http://localhost:3001/health** (API).
+It starts Postgres + Meilisearch + Redis, migrates + seeds + imports the Norwegian
+salmebok + builds the search index + embeddings, then the API and web.
+
+For local dev (not Docker) and per-feature curl examples, see [`docs/RUNBOOK.md`](docs/RUNBOOK.md).
 
 ## What SundaySong is (and isn't)
 

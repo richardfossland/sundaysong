@@ -1,0 +1,15 @@
+node_modules
+**/node_modules
+.next
+**/.next
+.turbo
+**/*.tsbuildinfo
+dist
+**/dist
+.git
+.github
+*.log
+.DS_Store
+.env
+.env*.local
+packages/db/types.generated.ts

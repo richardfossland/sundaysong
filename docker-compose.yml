@@ -1,0 +1,106 @@
+# SundaySong — full application stack for testing.
+#
+#   docker compose up --build
+#
+# Brings up Postgres (pgvector), Meilisearch, Redis, runs a one-shot init job
+# (migrate → seed → import salmebok → index → embed), then the API and web.
+# When it settles: web on http://localhost:3000, API on http://localhost:3001.
+#
+# Only the web + API ports are published, so this won't collide with the dev
+# stack in infra/dev/docker-compose.yml.
+
+name: sundaysong
+
+x-data-env: &data-env
+  DATABASE_URL: postgres://sunday:sunday@postgres:5432/sundaysong
+  MEILI_HOST: http://meilisearch:7700
+  MEILI_MASTER_KEY: dev_meili_master_key_change_me
+  REDIS_URL: redis://redis:6379
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: sunday
+      POSTGRES_PASSWORD: sunday
+      POSTGRES_DB: sundaysong
+    volumes:
+      - pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sunday -d sundaysong"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  meilisearch:
+    image: getmeili/meilisearch:v1.10
+    environment:
+      MEILI_MASTER_KEY: dev_meili_master_key_change_me
+      MEILI_ENV: development
+      MEILI_NO_ANALYTICS: "true"
+    volumes:
+      - meili:/meili_data
+
+  redis:
+    image: redis:7-alpine
+    volumes:
+      - redis:/data
+
+  # One-shot: prepare the database + search index, then exit.
+  init:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    environment: *data-env
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command:
+      - sh
+      - -c
+      - |
+        until curl -sf "$$MEILI_HOST/health" >/dev/null; do echo "waiting for meilisearch…"; sleep 2; done
+        pnpm db:migrate
+        pnpm db:seed
+        pnpm --filter @sundaysong/workers sync salmebok
+        pnpm search:index
+        pnpm embed
+    restart: "no"
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    environment:
+      <<: *data-env
+      PORT: "3001"
+    ports:
+      - "3001:3001"
+    depends_on:
+      init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:3001/health >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    environment:
+      # Browser-facing API URL (host-mapped); server components use the internal one.
+      NEXT_PUBLIC_API_URL: http://localhost:3001
+      API_INTERNAL_URL: http://api:3001
+    ports:
+      - "3000:3000"
+    depends_on:
+      api:
+        condition: service_healthy
+
+volumes:
+  pg:
+  meili:
+  redis:

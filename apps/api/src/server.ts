@@ -64,7 +64,7 @@ app.get("/health", async (c) => {
   try { await getSql()`select 1`; checks.db = "ok"; } catch { /* stays down */ }
   try { const h = await new MeiliClient().health(); if (h.status === "available") checks.search = "ok"; } catch { /* stays down */ }
   const ok = checks.db === "ok" && checks.search === "ok";
-  return c.json({ ok, version: "0.0.1", checks }, ok ? 200 : 503);
+  return c.json({ ok, version: "0.1.0", checks }, ok ? 200 : 503);
 });
 
 app.route("/v1/songs",        songsRoutes);
