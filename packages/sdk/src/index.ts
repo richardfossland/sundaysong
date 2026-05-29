@@ -28,6 +28,10 @@ export interface ClientConfig {
   apiKey?: string;
   /** Optional fetch override for tests / non-browser runtimes. */
   fetch?: typeof globalThis.fetch;
+  /** Retries on 429/5xx with exponential backoff (honors Retry-After). Default 2. */
+  maxRetries?: number;
+  /** Sleep override for tests (defaults to setTimeout). */
+  sleep?: (ms: number) => Promise<void>;
 }
 
 export class SundaySongError extends Error {
@@ -41,36 +45,53 @@ export class SundaySongError extends Error {
   }
 }
 
+const RETRYABLE = (status: number) => status === 429 || status >= 500;
+
 export class SundaySong {
   private readonly baseUrl: string;
   private readonly apiKey?: string;
   private readonly fetchImpl: typeof globalThis.fetch;
+  private readonly maxRetries: number;
+  private readonly sleep: (ms: number) => Promise<void>;
 
   constructor(config: ClientConfig = {}) {
     this.baseUrl = (config.baseUrl ?? "https://api.sundaysong.com").replace(/\/$/, "");
     this.apiKey = config.apiKey;
     this.fetchImpl = config.fetch ?? globalThis.fetch.bind(globalThis);
+    this.maxRetries = config.maxRetries ?? 2;
+    this.sleep = config.sleep ?? ((ms) => new Promise((r) => setTimeout(r, ms)));
+  }
+
+  /** Fetch with retry on transient failures; throws SundaySongError on a final non-2xx. */
+  private async send(path: string, init?: RequestInit): Promise<Response> {
+    for (let attempt = 0; ; attempt++) {
+      const res = await this.fetchImpl(this.baseUrl + path, {
+        ...init,
+        headers: {
+          "Content-Type": "application/json",
+          ...(this.apiKey ? { Authorization: `Bearer ${this.apiKey}` } : {}),
+          ...(init?.headers ?? {}),
+        },
+      });
+      if (res.ok) return res;
+      if (RETRYABLE(res.status) && attempt < this.maxRetries) {
+        const ra = Number(res.headers.get("retry-after"));
+        const delay = Number.isFinite(ra) && ra > 0 ? ra * 1000 : Math.min(2000, 250 * 2 ** attempt);
+        await this.sleep(delay);
+        continue;
+      }
+      let body: { error?: string; message?: string } = {};
+      try { body = await res.json() as { error?: string; message?: string }; } catch {}
+      throw new SundaySongError(res.status, body.error ?? `http_${res.status}`, body.message ?? res.statusText);
+    }
   }
 
   private async request<T>(path: string, init?: RequestInit): Promise<T> {
-    const res = await this.fetchImpl(this.baseUrl + path, {
-      ...init,
-      headers: {
-        "Content-Type": "application/json",
-        ...(this.apiKey ? { Authorization: `Bearer ${this.apiKey}` } : {}),
-        ...(init?.headers ?? {}),
-      },
-    });
-    if (!res.ok) {
-      let body: { error?: string; message?: string } = {};
-      try { body = await res.json() as { error?: string; message?: string }; } catch {}
-      throw new SundaySongError(
-        res.status,
-        body.error ?? `http_${res.status}`,
-        body.message ?? res.statusText,
-      );
-    }
-    return await res.json() as T;
+    return await (await this.send(path, init)).json() as T;
+  }
+
+  private async requestText(path: string, init?: RequestInit): Promise<string> {
+    return await (await this.send(path, init)).text();
   }
 
   // ── Public API ────────────────────────────────────────────────────────────
@@ -114,11 +135,22 @@ export class SundaySong {
       }),
   };
 
+  /** The data sources we index, with per-source variant counts. */
+  readonly sources = {
+    list: (): Promise<{ sources: SourceSummary[] }> => this.request("/v1/sources"),
+  };
+
   readonly licensing = {
     report: (input: { church_id: string; from: string; to: string }): Promise<LicensingReport> =>
       this.request("/v1/licensing/report", {
         method: "POST",
         body: JSON.stringify(input),
+      }),
+    /** Downloadable CSV for one licensor — returns the raw CSV text. */
+    reportCsv: (input: { church_id: string; from: string; to: string; system: "ccli" | "tono" }): Promise<string> =>
+      this.requestText(`/v1/licensing/report.csv?system=${input.system}`, {
+        method: "POST",
+        body: JSON.stringify({ church_id: input.church_id, from: input.from, to: input.to }),
       }),
     /** Per-song CCLI/TONO coverage for the song pill. */
     coverage: (input: CoverageInput): Promise<SongCoverageResult> =>
@@ -242,6 +274,15 @@ export interface SearchParams {
   language?: string;
   page?: number;
   page_size?: number;
+}
+
+export interface SourceSummary {
+  id: string;
+  name: string;
+  kind: "api" | "scrape" | "manual" | "user_upload";
+  attribution_template: string;
+  enabled: boolean;
+  variant_count: number;
 }
 
 /** Which engine answered a search — Meilisearch, or the trigram fallback when it's down. */
