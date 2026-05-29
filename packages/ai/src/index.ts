@@ -16,3 +16,11 @@ export {
   getEmbedder,
 } from "./embed";
 export { songEmbeddingText } from "./songText";
+export {
+  type RecommendRequest,
+  type Candidate,
+  type RankedPick,
+  type RankResult,
+  scoreCandidate,
+  rankPicks,
+} from "./recommend";
