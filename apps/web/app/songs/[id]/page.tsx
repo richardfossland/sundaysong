@@ -5,6 +5,22 @@ import { api } from "@/lib/client";
 
 export const dynamic = "force-dynamic";
 
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  try {
+    const song = await api.songs.get(id);
+    const writers = song.lyricists.map((l) => l.display_name).join(", ");
+    return {
+      title: `${song.canonical_title}${writers ? ` — ${writers}` : ""} | SundaySong`,
+      description: `${song.canonical_title}: themes, scripture, translations and variants. ${
+        song.copyright_status === "public_domain" ? "Public domain." : "Licensing details on SundaySong."
+      }`,
+    };
+  } catch {
+    return { title: "Song | SundaySong" };
+  }
+}
+
 type Load =
   | { kind: "ok"; song: SongDetail }
   | { kind: "missing" }
@@ -50,8 +66,19 @@ export default async function SongDetailPage({
     ? copyrightView(song.nordic_metadata.copyright_status_no)
     : null;
 
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "MusicComposition",
+    name: song.canonical_title,
+    inLanguage: song.original_language,
+    ...(song.year_first_published ? { datePublished: String(song.year_first_published) } : {}),
+    ...(song.lyricists.length ? { lyricist: song.lyricists.map((l) => ({ "@type": "Person", name: l.display_name })) } : {}),
+    ...(song.bible_refs.length ? { about: song.bible_refs } : {}),
+  };
+
   return (
     <section className="section shell">
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <BackLink />
 
       <div className="song-head">

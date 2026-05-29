@@ -11,6 +11,8 @@ export const metadata = {
   description: "Search worship songs and hymns across languages — Nordic-first.",
 };
 
+type Mode = "text" | "meaning";
+
 type Result =
   | { kind: "idle" }
   | { kind: "error"; message: string }
@@ -18,13 +20,18 @@ type Result =
       kind: "ok";
       hits: SearchHit[];
       total: number;
-      engine: "meilisearch" | "postgres_fallback";
+      engine?: "meilisearch" | "postgres_fallback";
+      semantic: boolean;
     };
 
-async function runSearch(q: string): Promise<Result> {
+async function runSearch(q: string, mode: Mode): Promise<Result> {
   try {
+    if (mode === "meaning") {
+      const res = await api.songs.semanticSearch({ query: q });
+      return { kind: "ok", hits: res.hits, total: res.hits.length, semantic: true };
+    }
     const res = await api.songs.search({ q });
-    return { kind: "ok", hits: res.hits, total: res.total, engine: res.engine };
+    return { kind: "ok", hits: res.hits, total: res.total, engine: res.engine, semantic: false };
   } catch (e) {
     return {
       kind: "error",
@@ -36,11 +43,12 @@ async function runSearch(q: string): Promise<Result> {
 export default async function SongsSearchPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string }>;
+  searchParams: Promise<{ q?: string; mode?: string }>;
 }) {
-  const { q } = await searchParams;
+  const { q, mode: modeParam } = await searchParams;
   const query = (q ?? "").trim();
-  const result = query ? await runSearch(query) : ({ kind: "idle" } as Result);
+  const mode: Mode = modeParam === "meaning" ? "meaning" : "text";
+  const result = query ? await runSearch(query, mode) : ({ kind: "idle" } as Result);
 
   return (
     <section className="section shell">
@@ -58,12 +66,21 @@ export default async function SongsSearchPage({
           type="text"
           name="q"
           defaultValue={query}
-          placeholder="e.g. Store Gud, Amazing Grace, Lord I lift…"
+          placeholder={mode === "meaning" ? "e.g. the song about chains falling off" : "e.g. Store Gud, Amazing Grace, Lord I lift…"}
           aria-label="Search songs"
           autoFocus
         />
+        <select name="mode" defaultValue={mode} aria-label="Search mode">
+          <option value="text">Text</option>
+          <option value="meaning">By meaning</option>
+        </select>
         <button className="btn" type="submit">Search</button>
       </form>
+      <p className="muted" style={{ fontSize: "0.85rem", marginTop: 8 }}>
+        {mode === "meaning"
+          ? "Semantic search — describe what the song is about, in any words."
+          : "Typo-tolerant text search across titles and variants."}
+      </p>
 
       {result.kind === "error" && (
         <p className="err" style={{ marginTop: 22 }}>⚠ {result.message}</p>
@@ -82,9 +99,13 @@ export default async function SongsSearchPage({
               {result.total} {result.total === 1 ? "result" : "results"} for{" "}
               <em className="serif-italic">{query}</em>
             </span>
-            <span className={`engine-tag ${result.engine}`}>
-              {result.engine === "meilisearch" ? "Meilisearch" : "Postgres fallback"}
-            </span>
+            {result.semantic ? (
+              <span className="engine-tag meilisearch">By meaning</span>
+            ) : (
+              <span className={`engine-tag ${result.engine}`}>
+                {result.engine === "meilisearch" ? "Meilisearch" : "Postgres fallback"}
+              </span>
+            )}
           </div>
 
           {result.hits.length === 0 ? (

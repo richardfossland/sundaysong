@@ -403,6 +403,24 @@ input[type="text"]:focus, textarea:focus, select:focus {
 }
 .year-tag { border-style: dashed; color: var(--ink-faint); }
 
+/* ── Sources page ─────────────────────────────────────────────────────────── */
+
+.source-list { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+.source-row { border: 1px solid var(--ink); background: var(--paper-2); padding: 18px; }
+.source-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.source-head h3 { font-size: 1.4rem; }
+.source-attr { color: var(--ink-soft); margin: 8px 0 0; font-size: 0.95rem; }
+.source-count { font-family: var(--font-mono); font-size: 0.74rem; color: var(--ink-faint); margin: 10px 0 0; letter-spacing: 0.06em; }
+
+/* ── Prose (about) ────────────────────────────────────────────────────────── */
+
+.prose { max-width: 62ch; }
+.prose p { color: var(--ink-soft); }
+.prose strong { color: var(--ink); font-weight: 600; }
+.prose h3 { font-size: 1.5rem; margin: 30px 0 10px; }
+.prose ul { color: var(--ink-soft); padding-left: 1.2em; }
+.prose li { margin: 4px 0; }
+
 /* ── Song detail ──────────────────────────────────────────────────────────── */
 
 .back-link {
