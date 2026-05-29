@@ -261,10 +261,21 @@ export interface Lyricist {
   display_name: string;
 }
 
-/** `GET /v1/songs/:id` — the full song with its variants and credited writers. */
+/** A song in another language linked to this one (Phase 3.3 cross-language). */
+export interface TranslationLink {
+  song_id: string;
+  title: string;
+  language: string;
+  relationship: "official" | "unofficial" | "adaptation" | "paraphrase";
+  attribution: string | null;
+  direction: "to" | "from";
+}
+
+/** `GET /v1/songs/:id` — the full song with its variants, writers and translations. */
 export type SongDetail = Song & {
   variants: SongVariant[];
   lyricists: Lyricist[];
+  translations: TranslationLink[];
 };
 
 export interface UsageLogPayload {

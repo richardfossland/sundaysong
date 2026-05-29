@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
 
 import { SongSearchQuerySchema, SemanticSearchSchema } from "@sundaysong/shared";
-import { getSql, getSong, getSongsByIds, listVariantsForSong, lyricistsForSong, searchSongsByTitle } from "@sundaysong/db";
+import { getSql, getSong, getSongsByIds, listVariantsForSong, lyricistsForSong, searchSongsByTitle, translationsForSong, translationsForSongs } from "@sundaysong/db";
 import { MeiliClient, SONG_INDEX } from "@sundaysong/search";
 
 export const songsRoutes = new Hono();
@@ -30,6 +30,7 @@ songsRoutes.get("/search", zValidator("query", SongSearchQuerySchema), async (c)
 
     const ids = res.hits.map((h) => h.id);
     const byId = new Map((await getSongsByIds(sql, ids)).map((s) => [s.id, s]));
+    const translationsById = await translationsForSongs(sql, ids);
     const hits = [];
     for (const id of ids) {
       const song = byId.get(id);
@@ -37,7 +38,11 @@ songsRoutes.get("/search", zValidator("query", SongSearchQuerySchema), async (c)
       hits.push({
         song,
         variants: await listVariantsForSong(sql, id),
-        translations: [],
+        translations: (translationsById.get(id) ?? []).map((t) => ({
+          language: t.language,
+          song_id: t.song_id,
+          title: t.title,
+        })),
         match_reason: "text" as const,
         score: 1,
       });
@@ -47,11 +52,16 @@ songsRoutes.get("/search", zValidator("query", SongSearchQuerySchema), async (c)
     // Meilisearch unavailable → fall back to the Postgres trigram search so the
     // endpoint keeps working (degraded: no facets, no typo tolerance).
     const songs = await searchSongsByTitle(sql, q.q, q.page_size);
+    const translationsById = await translationsForSongs(sql, songs.map((s) => s.id));
     const hits = await Promise.all(
       songs.map(async (song) => ({
         song,
         variants: await listVariantsForSong(sql, song.id),
-        translations: [],
+        translations: (translationsById.get(song.id) ?? []).map((t) => ({
+          language: t.language,
+          song_id: t.song_id,
+          title: t.title,
+        })),
         match_reason: "text" as const,
         score: 1,
       })),
@@ -77,9 +87,10 @@ songsRoutes.get("/:id", async (c) => {
   const sql = getSql();
   const song = await getSong(sql, id);
   if (!song) return c.json({ error: "not_found", id }, 404);
-  const [variants, lyricists] = await Promise.all([
+  const [variants, lyricists, translations] = await Promise.all([
     listVariantsForSong(sql, id),
     lyricistsForSong(sql, id),
+    translationsForSong(sql, id),
   ]);
-  return c.json({ ...song, variants, lyricists });
+  return c.json({ ...song, variants, lyricists, translations });
 });

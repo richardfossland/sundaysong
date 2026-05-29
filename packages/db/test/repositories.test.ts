@@ -16,6 +16,7 @@ import { insertSong, getSong, searchSongsByTitle } from "../src/repositories/son
 import { upsertSongWithVariant } from "../src/repositories/ingest";
 import { logUsage, usageForPeriod } from "../src/repositories/usage";
 import { upsertPerson, lyricistsForSong } from "../src/repositories/persons";
+import { linkTranslation, translationsForSong, translationsForSongs } from "../src/repositories/translations";
 
 const base = process.env.DATABASE_URL ?? DEFAULT_DATABASE_URL;
 const withDb = (db: string) => { const u = new URL(base); u.pathname = "/" + db; return u.toString(); };
@@ -140,6 +141,43 @@ describe("persons + lyricist linking", () => {
     const [la] = await lyricistsForSong(sql, a.song_id);
     const [lb] = await lyricistsForSong(sql, b.song_id);
     expect(la!.id).toBe(lb!.id);
+  });
+});
+
+describe("translations (cross-language linking)", () => {
+  async function pair() {
+    const en = await insertSong(sql, { canonical_title: "How Great Is Our God", original_language: "en" });
+    const no = await insertSong(sql, { canonical_title: "Stor er du Gud", original_language: "no" });
+    await linkTranslation(sql, { source_song_id: en.id, target_song_id: no.id, relationship: "official", attribution: "Norsk tekst" });
+    return { en, no };
+  }
+
+  test("surfaces the link from both directions", async () => {
+    const { en, no } = await pair();
+    const fromEn = await translationsForSong(sql, en.id);
+    expect(fromEn).toHaveLength(1);
+    expect(fromEn[0]!.title).toBe("Stor er du Gud");
+    expect(fromEn[0]!.direction).toBe("to");
+
+    const fromNo = await translationsForSong(sql, no.id);
+    expect(fromNo).toHaveLength(1);
+    expect(fromNo[0]!.title).toBe("How Great Is Our God");
+    expect(fromNo[0]!.direction).toBe("from");
+  });
+
+  test("linkTranslation is idempotent on the pair", async () => {
+    const { en, no } = await pair();
+    await linkTranslation(sql, { source_song_id: en.id, target_song_id: no.id, relationship: "unofficial" });
+    const links = await translationsForSong(sql, en.id);
+    expect(links).toHaveLength(1);
+    expect(links[0]!.relationship).toBe("unofficial"); // upsert updated in place
+  });
+
+  test("bulk translationsForSongs groups by owner", async () => {
+    const { en, no } = await pair();
+    const map = await translationsForSongs(sql, [en.id, no.id]);
+    expect(map.get(en.id)).toHaveLength(1);
+    expect(map.get(no.id)).toHaveLength(1);
   });
 });
 

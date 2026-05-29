@@ -14,6 +14,7 @@ import { upsertSource, type SourceKind } from "./repositories/sources";
 import { upsertSongWithVariant, type UpsertSongWithVariantInput } from "./repositories/ingest";
 import { upsertChurchLicensing } from "./repositories/church";
 import { logUsage } from "./repositories/usage";
+import { linkTranslation, type TranslationRelationship } from "./repositories/translations";
 
 /** Demo church for the licensing report — a frikirke with CCLI + direct TONO. */
 export const DEMO_CHURCH_ID = "11111111-1111-1111-1111-111111111111";
@@ -77,6 +78,29 @@ const SONGS: UpsertSongWithVariantInput[] = [
     song: { canonical_title: "10,000 Reasons (Bless the Lord)", original_language: "en", copyright_status: "copyrighted", ccli_song_id: "6016351", tono_work_id: "T-1005", tono_registered: true, themes: ["praise", "thankfulness"], bible_refs: ["Psalm 103:1"] },
     variant: { title: "10,000 Reasons (Bless the Lord)", language: "en", key: "G", attribution_text: "Licensed via CCLI" },
   },
+  // ── Cross-language pairs — the killer feature gets real data ──────────────
+  {
+    source_name: "ccli", source_external_id: "117947",
+    song: { canonical_title: "Lord I Lift Your Name on High", original_language: "en", copyright_status: "copyrighted", ccli_song_id: "117947", tono_work_id: "T-1006", tono_registered: true, themes: ["praise", "salvation"], bible_refs: ["Psalm 18:46"] },
+    variant: { title: "Lord I Lift Your Name on High", language: "en", key: "G", attribution_text: "Licensed via CCLI" },
+  },
+  {
+    source_name: "lovsang", source_external_id: "herre-jeg-lofter-ditt-navn",
+    song: { canonical_title: "Herre, jeg løfter ditt navn", original_language: "no", copyright_status: "copyrighted", tono_work_id: "T-1007", tono_registered: true, themes: ["lovsang", "frelse"], bible_refs: ["Salme 18:46"] },
+    variant: { title: "Herre, jeg løfter ditt navn", language: "no", key: "G", attribution_text: "Content from lovsang.no" },
+  },
+  {
+    source_name: "hymnary", source_external_id: "be-thou-my-vision",
+    song: { canonical_title: "Be Thou My Vision", original_language: "en", copyright_status: "public_domain", year_first_published: 1905, hymnary_id: "be_thou_my_vision", themes: ["guidance", "devotion"], bible_refs: ["Proverbs 3:5"] },
+    variant: { title: "Be Thou My Vision", language: "en", key: "Eb", attribution_text: "Content from Hymnary.org" },
+  },
+];
+
+/** Explicit translation links (Phase 3.3 mechanism 1). */
+interface SeedTranslation { from: string; to: string; relationship: TranslationRelationship; attribution?: string }
+const TRANSLATIONS: SeedTranslation[] = [
+  { from: "How Great Is Our God", to: "Stor er du Gud", relationship: "official", attribution: "Norsk tekst" },
+  { from: "Lord I Lift Your Name on High", to: "Herre, jeg løfter ditt navn", relationship: "official", attribution: "Norsk gjendiktning" },
 ];
 
 async function main(): Promise<void> {
@@ -92,6 +116,19 @@ async function main(): Promise<void> {
       if (r.action === "added") added += 1; else updated += 1;
     }
     console.log(`✓ seeded ${SOURCES.length} sources, ${SONGS.length} songs (${added} added, ${updated} updated)`);
+
+    let linked = 0;
+    for (const t of TRANSLATIONS) {
+      const from = songIdByTitle.get(t.from);
+      const to = songIdByTitle.get(t.to);
+      if (!from || !to) continue;
+      await linkTranslation(sql, {
+        source_song_id: from, target_song_id: to,
+        relationship: t.relationship, attribution: t.attribution ?? null, verified_by: "admin",
+      });
+      linked += 1;
+    }
+    console.log(`✓ linked ${linked} translation pairs`);
 
     await upsertChurchLicensing(sql, {
       church_id: DEMO_CHURCH_ID,

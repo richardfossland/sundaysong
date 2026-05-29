@@ -99,6 +99,23 @@ export default async function SongDetailPage({
         )}
       </div>
 
+      {song.translations.length > 0 && (
+        <div className="translations-block">
+          <div className="field-label">Also known as</div>
+          <ul className="translation-list">
+            {song.translations.map((t) => (
+              <li key={t.song_id}>
+                <Link href={`/songs/${encodeURIComponent(t.song_id)}`} className="translation-link">
+                  <span className="lang-tag">{t.language.toUpperCase()}</span>
+                  <span className="translation-title">{t.title}</span>
+                  <span className="translation-rel">{t.relationship}</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       {(song.themes.length > 0 || song.bible_refs.length > 0) && (
         <div className="song-tax">
           {song.themes.length > 0 && (

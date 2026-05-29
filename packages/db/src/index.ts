@@ -28,6 +28,15 @@ export {
 } from "./repositories/songs";
 export { getChurchLicensing, upsertChurchLicensing } from "./repositories/church";
 export { type PersonRow, upsertPerson, linkLyricist, lyricistsForSong } from "./repositories/persons";
+export {
+  type TranslationRelationship,
+  type TranslationVerifiedBy,
+  type LinkTranslationInput,
+  type TranslationLink,
+  linkTranslation,
+  translationsForSong,
+  translationsForSongs,
+} from "./repositories/translations";
 export { type VariantInput, upsertVariant, listVariantsForSong } from "./repositories/variants";
 export { type LogUsageInput, logUsage, usageForPeriod } from "./repositories/usage";
 export {

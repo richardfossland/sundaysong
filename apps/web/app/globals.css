@@ -429,6 +429,26 @@ input[type="text"]:focus, textarea:focus, select:focus {
 .fact-value { font-family: var(--font-mono); font-size: 0.95rem; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .reg-flag { color: var(--pine); }
 
+.translations-block { margin-top: 24px; }
+.translation-list { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.translation-link {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  background: var(--paper-2);
+  transition: border-color 0.15s ease, transform 0.06s ease;
+}
+.translation-link:hover { border-color: var(--ember); transform: translateX(3px); }
+.translation-title { font-family: var(--font-display); font-size: 1.15rem; }
+.translation-rel {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
 .song-tax { display: flex; gap: 40px; flex-wrap: wrap; margin-top: 24px; }
 .tag-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
 
