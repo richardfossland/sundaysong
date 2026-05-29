@@ -350,6 +350,125 @@ input[type="text"]:focus, textarea:focus, select:focus {
 }
 .colophon .mono { font-family: var(--font-mono); font-size: 0.72rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-faint); }
 
+/* ── Song search ──────────────────────────────────────────────────────────── */
+
+.search-form { display: flex; gap: 12px; align-items: stretch; }
+.search-form input[type="text"] { font-size: 1.05rem; padding: 14px 16px; }
+.search-form .btn { white-space: nowrap; }
+
+.result-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 10px;
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  color: var(--ink-faint);
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 10px;
+}
+.result-meta em { color: var(--ember-deep); font-style: italic; }
+.engine-tag {
+  font-size: 0.66rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  border: 1px solid var(--line);
+}
+.engine-tag.meilisearch { color: var(--pine); border-color: var(--pine-soft); }
+.engine-tag.postgres_fallback { color: var(--ember-deep); border-color: var(--gold); }
+
+.result-list { list-style: none; margin: 0; padding: 0; }
+.result-row { border-bottom: 1px solid var(--line); }
+.result-link {
+  display: block;
+  padding: 18px 4px;
+  transition: background 0.15s ease, padding-left 0.15s ease;
+}
+.result-link:hover { background: var(--paper-2); padding-left: 12px; }
+.result-main { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.result-title { font-size: 1.5rem; }
+.result-tags { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.result-themes { color: var(--ink-faint); font-size: 0.92rem; margin: 6px 0 0; }
+
+.lang-tag, .year-tag {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  padding: 3px 8px;
+  border: 1px solid var(--line);
+  color: var(--ink-soft);
+  background: var(--paper);
+}
+.year-tag { border-style: dashed; color: var(--ink-faint); }
+
+/* ── Song detail ──────────────────────────────────────────────────────────── */
+
+.back-link {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+.back-link:hover { color: var(--ember); }
+
+.song-head { margin: 18px 0 28px; }
+.song-title { font-size: clamp(2.4rem, 6vw, 4.2rem); margin-top: 8px; }
+.song-credit { color: var(--ink-soft); margin-top: 12px; font-size: 1.05rem; }
+.credit-name { color: var(--ink); font-style: italic; font-family: var(--font-display); }
+
+.song-meta-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0;
+  border: 1px solid var(--ink);
+}
+.fact { padding: 16px 18px; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.fact-value { font-family: var(--font-mono); font-size: 0.95rem; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.reg-flag { color: var(--pine); }
+
+.song-tax { display: flex; gap: 40px; flex-wrap: wrap; margin-top: 24px; }
+.tag-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+
+.variant-list { display: flex; flex-direction: column; gap: 18px; }
+.variant-card { background: var(--paper-2); }
+.variant-top { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; flex-wrap: wrap; }
+.variant-title { font-size: 1.35rem; margin-bottom: 6px; }
+.variant-facts { font-family: var(--font-mono); font-size: 0.82rem; color: var(--ink-soft); }
+
+.structure-row { display: flex; gap: 7px; flex-wrap: wrap; margin-top: 14px; }
+.section-chip {
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  letter-spacing: 0.06em;
+  padding: 3px 8px;
+  background: var(--pine);
+  color: var(--paper);
+}
+
+.excerpt {
+  font-family: var(--font-body);
+  font-style: italic;
+  color: var(--ink-soft);
+  border-left: 2px solid var(--ember);
+  margin: 16px 0 0;
+  padding: 8px 0 8px 16px;
+  white-space: pre-line;
+}
+
+.variant-links { display: flex; gap: 16px; margin-top: 16px; }
+.ext-link {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  color: var(--ember-deep);
+  border-bottom: 1px solid var(--gold);
+  padding-bottom: 2px;
+}
+.ext-link:hover { color: var(--ember); }
+.attribution { font-size: 0.82rem; color: var(--ink-faint); margin-top: 14px; font-style: italic; }
+
 @media (max-width: 860px) {
   .hero-grid { grid-template-columns: 1fr; gap: 28px; }
   .hero-aside { border-left: 0; border-top: 1px solid var(--ink); padding-left: 0; padding-top: 18px; }

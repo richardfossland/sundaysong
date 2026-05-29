@@ -23,9 +23,10 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         <header className="masthead">
           <a className="wordmark" href="/">Sunday<span>Song</span></a>
           <nav>
-            <a href="#transpose">Transpose</a>
-            <a href="#licensing">Licensing</a>
-            <a href="#about">About</a>
+            <a href="/songs">Search</a>
+            <a href="/#transpose">Transpose</a>
+            <a href="/#licensing">Licensing</a>
+            <a href="/#about">About</a>
           </nav>
         </header>
         <main className="page">{children}</main>

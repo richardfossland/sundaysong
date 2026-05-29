@@ -13,6 +13,8 @@
 import type {
   Song,
   SongVariant,
+  SongSection,
+  NordicMetadata,
   SearchHit,
   RecommendInput,
   RecommendOutput,
@@ -74,7 +76,7 @@ export class SundaySong {
   // ── Public API ────────────────────────────────────────────────────────────
 
   readonly songs = {
-    search: (params: SearchParams): Promise<{ hits: SearchHit[]; total: number }> => {
+    search: (params: SearchParams): Promise<SongSearchResult> => {
       const u = new URLSearchParams();
       u.set("q", params.q);
       if (params.language) u.set("language", params.language);
@@ -87,7 +89,7 @@ export class SundaySong {
         method: "POST",
         body: JSON.stringify(body),
       }),
-    get: (id: string): Promise<Song & { variants: SongVariant[] }> =>
+    get: (id: string): Promise<SongDetail> =>
       this.request(`/v1/songs/${encodeURIComponent(id)}`),
   };
 
@@ -242,6 +244,29 @@ export interface SearchParams {
   page_size?: number;
 }
 
+/** Which engine answered a search — Meilisearch, or the trigram fallback when it's down. */
+export type SearchEngine = "meilisearch" | "postgres_fallback";
+
+export interface SongSearchResult {
+  hits: SearchHit[];
+  total: number;
+  page: number;
+  page_size: number;
+  engine: SearchEngine;
+}
+
+/** A credited writer linked to a song (Phase 1.2 person linking). */
+export interface Lyricist {
+  id: string;
+  display_name: string;
+}
+
+/** `GET /v1/songs/:id` — the full song with its variants and credited writers. */
+export type SongDetail = Song & {
+  variants: SongVariant[];
+  lyricists: Lyricist[];
+};
+
 export interface UsageLogPayload {
   church_id: string;
   song_id: string;
@@ -252,4 +277,4 @@ export interface UsageLogPayload {
   idempotency_key: string;
 }
 
-export type { Song, SongVariant, SearchHit, RecommendInput, RecommendOutput, LicensingReport };
+export type { Song, SongVariant, SearchHit, RecommendInput, RecommendOutput, LicensingReport, SongSection, NordicMetadata };
