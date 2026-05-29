@@ -49,6 +49,27 @@ export const LicensingReportInputSchema = z.object({
 
 const CopyrightStatusSchema = z.enum(["public_domain", "copyrighted", "unknown"]);
 
+/**
+ * User upload (Phase 8.1). The contributor asserts they have the right to
+ * share — we don't host content we have no license for, so the declaration is
+ * mandatory. Moderation + per-user visibility land with Sunday-account auth.
+ */
+export const SongUploadInputSchema = z.object({
+  title: z.string().min(1).max(300),
+  language: z.string().min(2).max(8),
+  year_first_published: z.number().int().min(0).max(3000).nullable().optional(),
+  copyright_status: CopyrightStatusSchema.default("unknown"),
+  lyricists: z.array(z.string().min(1).max(200)).max(16).optional(),
+  themes: z.array(z.string().min(1).max(64)).max(16).optional(),
+  bible_refs: z.array(z.string().min(1).max(64)).max(32).optional(),
+  key: z.string().max(8).nullable().optional(),
+  lyrics_excerpt: z.string().max(2000).nullable().optional(),
+  lyrics_url: z.string().url().max(2000).nullable().optional(),
+  chord_chart_url: z.string().url().max(2000).nullable().optional(),
+  /** Required: "I have the right to share this." */
+  license_declaration: z.literal(true),
+});
+
 /** Transposition request. Provide chords[] or a chordpro blob, plus a target. */
 export const TransposeInputSchema = z
   .object({

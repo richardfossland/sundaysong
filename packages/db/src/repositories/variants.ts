@@ -10,6 +10,7 @@ export interface VariantInput {
   key?: string | null;
   lyrics_url?: string | null;
   lyrics_excerpt?: string | null;
+  chord_chart_url?: string | null;
   attribution_text?: string | null;
 }
 
@@ -22,11 +23,11 @@ export async function upsertVariant(sql: Executor, input: VariantInput): Promise
   const rows = await sql<Array<{ id: string; created: boolean }>>`
     insert into song_variant (
       song_id, source_id, source_external_id, title, language, key,
-      lyrics_url, lyrics_excerpt, attribution_text, attribution_required
+      lyrics_url, lyrics_excerpt, chord_chart_url, attribution_text, attribution_required
     ) values (
       ${input.song_id}, ${input.source_id}, ${input.source_external_id}, ${input.title},
       ${input.language}, ${input.key ?? null}, ${input.lyrics_url ?? null},
-      ${input.lyrics_excerpt ?? null}, ${input.attribution_text ?? null}, true
+      ${input.lyrics_excerpt ?? null}, ${input.chord_chart_url ?? null}, ${input.attribution_text ?? null}, true
     )
     on conflict (source_id, source_external_id) do update set
       title = excluded.title,
@@ -34,6 +35,7 @@ export async function upsertVariant(sql: Executor, input: VariantInput): Promise
       key = excluded.key,
       lyrics_url = excluded.lyrics_url,
       lyrics_excerpt = excluded.lyrics_excerpt,
+      chord_chart_url = excluded.chord_chart_url,
       attribution_text = excluded.attribution_text,
       last_verified_at = now()
     returning id, (xmax = 0) as created

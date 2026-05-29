@@ -17,6 +17,7 @@ export interface UpsertSongWithVariantInput {
     key?: string | null;
     lyrics_url?: string | null;
     lyrics_excerpt?: string | null;
+    chord_chart_url?: string | null;
     attribution_text?: string | null;
   };
   /** Lyricist display names — find-or-created and linked (idempotent). */

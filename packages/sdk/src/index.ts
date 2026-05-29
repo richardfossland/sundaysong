@@ -112,6 +112,9 @@ export class SundaySong {
       }),
     get: (id: string): Promise<SongDetail> =>
       this.request(`/v1/songs/${encodeURIComponent(id)}`),
+    /** Contribute a song (Phase 8.1) — requires `license_declaration: true`. */
+    upload: (input: SongUploadInput): Promise<{ song_id: string; variant_id: string; action: "added" | "updated" }> =>
+      this.request("/v1/songs", { method: "POST", body: JSON.stringify(input) }),
   };
 
   readonly recommend = (input: RecommendInput): Promise<RecommendOutput> =>
@@ -274,6 +277,22 @@ export interface SearchParams {
   language?: string;
   page?: number;
   page_size?: number;
+}
+
+export interface SongUploadInput {
+  title: string;
+  language: string;
+  year_first_published?: number | null;
+  copyright_status?: "public_domain" | "copyrighted" | "unknown";
+  lyricists?: string[];
+  themes?: string[];
+  bible_refs?: string[];
+  key?: string | null;
+  lyrics_excerpt?: string | null;
+  lyrics_url?: string | null;
+  chord_chart_url?: string | null;
+  /** Must be true — "I have the right to share this." */
+  license_declaration: true;
 }
 
 export interface SourceSummary {

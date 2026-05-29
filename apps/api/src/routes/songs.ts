@@ -1,9 +1,9 @@
 import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
 
-import { SongSearchQuerySchema, SemanticSearchSchema } from "@sundaysong/shared";
-import { getSql, getSong, getSongsByIds, listVariantsForSong, lyricistsForSong, searchSongsByTitle, translationsForSong, translationsForSongs, nearestSongs } from "@sundaysong/db";
-import { MeiliClient, SONG_INDEX } from "@sundaysong/search";
+import { SongSearchQuerySchema, SemanticSearchSchema, SongUploadInputSchema } from "@sundaysong/shared";
+import { getSql, getSong, getSongsByIds, listVariantsForSong, lyricistsForSong, searchSongsByTitle, translationsForSong, translationsForSongs, nearestSongs, upsertSongWithVariant } from "@sundaysong/db";
+import { MeiliClient, SONG_INDEX, songToSearchDoc } from "@sundaysong/search";
 import { getEmbedder } from "@sundaysong/ai";
 
 export const songsRoutes = new Hono();
@@ -106,6 +106,54 @@ songsRoutes.post("/semantic-search", zValidator("json", SemanticSearchSchema), a
     }),
   );
   return c.json({ hits, query: body.query, model: embedder.modelVersion });
+});
+
+// POST /v1/songs — user contribution (Phase 8.1).
+//   The contributor must declare they have the right to share. Creates a
+//   song + a user_upload variant via the same idempotent ingest pipeline,
+//   then indexes it so it's immediately searchable. Moderation + per-user
+//   visibility land with Sunday-account auth.
+songsRoutes.post("/", zValidator("json", SongUploadInputSchema), async (c) => {
+  const body = c.req.valid("json");
+  const sql = getSql();
+
+  const result = await upsertSongWithVariant(sql, {
+    source_name: "user_upload",
+    source_kind: "user_upload",
+    source_external_id: crypto.randomUUID(),
+    song: {
+      canonical_title: body.title,
+      original_language: body.language,
+      copyright_status: body.copyright_status,
+      year_first_published: body.year_first_published ?? null,
+      themes: body.themes ?? [],
+      bible_refs: body.bible_refs ?? [],
+    },
+    variant: {
+      title: body.title,
+      language: body.language,
+      key: body.key ?? null,
+      lyrics_excerpt: body.lyrics_excerpt ?? null,
+      lyrics_url: body.lyrics_url ?? null,
+      chord_chart_url: body.chord_chart_url ?? null,
+      attribution_text: "User contribution",
+    },
+    lyricists: body.lyricists,
+  });
+
+  // Index immediately so it shows up in search (best-effort — Postgres is the
+  // source of truth; the reindex worker would catch it anyway if Meili is down).
+  try {
+    const song = await getSong(sql, result.song_id);
+    if (song) {
+      const variants = await listVariantsForSong(sql, result.song_id);
+      await new MeiliClient().addDocuments(SONG_INDEX, [songToSearchDoc(song, variants)]);
+    }
+  } catch (err) {
+    console.warn("[upload] meili index skipped:", err instanceof Error ? err.message : err);
+  }
+
+  return c.json({ song_id: result.song_id, variant_id: result.variant_id, action: result.action }, 201);
 });
 
 // GET /v1/songs/:id
