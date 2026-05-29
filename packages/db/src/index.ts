@@ -14,8 +14,10 @@ export {
   type SourceRow,
   type SourceKind,
   type UpsertSourceInput,
+  type SourceWithCount,
   upsertSource,
   getSourceByName,
+  listSources,
 } from "./repositories/sources";
 export {
   type SongInput,

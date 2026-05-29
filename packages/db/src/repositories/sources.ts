@@ -34,3 +34,19 @@ export async function getSourceByName(sql: Executor, name: string): Promise<Sour
   `;
   return rows[0] ?? null;
 }
+
+export interface SourceWithCount extends SourceRow {
+  /** How many variants we've indexed from this source. */
+  variant_count: number;
+}
+
+/** All sources with the count of variants we've indexed from each. */
+export async function listSources(sql: Executor): Promise<SourceWithCount[]> {
+  return await sql<SourceWithCount[]>`
+    select s.id, s.name, s.kind, s.attribution_template, s.enabled,
+           count(v.id)::int as variant_count
+    from source s left join song_variant v on v.source_id = s.id
+    group by s.id
+    order by variant_count desc, s.name
+  `;
+}

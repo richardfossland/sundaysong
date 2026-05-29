@@ -9,7 +9,7 @@
     "start":     "bun run dist/server.js",
     "typecheck": "tsc --noEmit",
     "lint":      "echo lint placeholder",
-    "test":      "echo test placeholder"
+    "test":      "bun test"
   },
   "dependencies": {
     "hono": "^4.6.0",
