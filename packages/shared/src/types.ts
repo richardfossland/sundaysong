@@ -133,6 +133,8 @@ export interface RecommendOutput {
   total_minutes_estimate: number;
   /** Free-form planner-facing explanation. */
   summary: string;
+  /** True when an LLM re-ordered + re-explained the picks (Sunday Pro tier). */
+  reranked: boolean;
 }
 
 // ── Licensing report shapes ─────────────────────────────────────────────────

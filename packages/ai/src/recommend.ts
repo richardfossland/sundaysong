@@ -42,6 +42,8 @@ export interface RankResult {
   picks: RankedPick[];
   total_minutes_estimate: number;
   summary: string;
+  /** True when an LLM re-ranked/re-explained these picks (see rerank.ts). */
+  reranked?: boolean;
 }
 
 const MIN_PER_SONG = 4; // rough average worship-song length

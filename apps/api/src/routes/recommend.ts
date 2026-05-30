@@ -3,14 +3,16 @@ import { zValidator } from "@hono/zod-validator";
 
 import { RecommendInputSchema } from "@sundaysong/shared";
 import { getSql, nearestSongs, listSongs, listVariantsForSong, type NearestSong } from "@sundaysong/db";
-import { getEmbedder, rankPicks, type Candidate } from "@sundaysong/ai";
+import { getEmbedder, rerankPicks, getLlmClient, type Candidate } from "@sundaysong/ai";
 
 export const recommendRoutes = new Hono();
 
 // POST /v1/recommend
 //   Body: RecommendInput → ranked, reasoned set grounded in the real catalog.
 //   Retrieval = embed (theme + scripture + description), nearest songs via
-//   pgvector; ranking + explanations from @sundaysong/ai. No hosted LLM needed.
+//   pgvector; heuristic ranking + explanations from @sundaysong/ai always.
+//   When ANTHROPIC_API_KEY is set, an LLM re-orders + re-explains the same
+//   catalog picks (Sunday Pro); with no key it degrades to the heuristic.
 recommendRoutes.post("/", zValidator("json", RecommendInputSchema), async (c) => {
   const input = c.req.valid("json");
   const sql = getSql();
@@ -38,12 +40,13 @@ recommendRoutes.post("/", zValidator("json", RecommendInputSchema), async (c) =>
     semantic_score: n.score,
   }));
 
-  const ranked = rankPicks(
+  const ranked = await rerankPicks(
     {
       theme: input.theme, scripture: input.scripture, description: input.description,
       arc: input.arc, duration_min: input.duration_min, language: input.language,
     },
     candidates,
+    getLlmClient(),
   );
 
   // Hydrate the chosen picks back to full songs (+ a suggested key from a variant).
@@ -61,5 +64,6 @@ recommendRoutes.post("/", zValidator("json", RecommendInputSchema), async (c) =>
     picks,
     total_minutes_estimate: ranked.total_minutes_estimate,
     summary: ranked.summary,
+    reranked: ranked.reranked ?? false,
   });
 });

@@ -24,3 +24,23 @@ export {
   scoreCandidate,
   rankPicks,
 } from "./recommend";
+export {
+  type LlmMessage,
+  type LlmCompleteOptions,
+  type LlmClient,
+  type ClaudeModel,
+  CLAUDE_MODELS,
+  DEFAULT_LLM_MODEL,
+  estimateCost,
+  approxTokens,
+  AnthropicClient,
+  getLlmClient,
+} from "./llm";
+export {
+  type RerankResponse,
+  RERANK_SYSTEM_PROMPT,
+  buildRerankPrompt,
+  parseRerankResponse,
+  applyRerank,
+  rerankPicks,
+} from "./rerank";
