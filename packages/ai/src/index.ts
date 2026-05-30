@@ -44,3 +44,21 @@ export {
   applyRerank,
   rerankPicks,
 } from "./rerank";
+export {
+  type LineMetric,
+  type SingabilityReport,
+  type TranslatableContext,
+  type DraftTranslationRequest,
+  type TranslationDraft,
+  TRANSLATION_SYSTEM_PROMPT,
+  TRANSLATION_DISCLAIMER,
+  TranslationRefused,
+  syllableCount,
+  lyricLines,
+  assessSingability,
+  canTranslate,
+  isTranslatableQuality,
+  buildTranslationPrompt,
+  parseTranslationResponse,
+  draftTranslation,
+} from "./translate";

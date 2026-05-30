@@ -137,6 +137,32 @@ export interface RecommendOutput {
   reranked: boolean;
 }
 
+// ── AI translation draft (Phase 4.2, Sunday Pro) ────────────────────────────
+
+export interface TranslateInput {
+  source_title: string;
+  source_lyrics: string;
+  source_language: string;
+  target_language: string;
+  style?: string;
+  copyright_status?: CopyrightStatus;
+  source_is_user_upload?: boolean;
+}
+
+export interface TranslationDraftResult {
+  target_language: string;
+  title: string;
+  lyrics: string;
+  singability: {
+    confidence: number;
+    warnings: string[];
+    lines: Array<{ source: string; translated: string; source_syllables: number; translated_syllables: number }>;
+  };
+  warnings: string[];
+  model: string;
+  disclaimer: string;
+}
+
 // ── Licensing report shapes ─────────────────────────────────────────────────
 
 export interface CcliReportRow {

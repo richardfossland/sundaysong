@@ -70,6 +70,23 @@ export const SongUploadInputSchema = z.object({
   license_declaration: z.literal(true),
 });
 
+/**
+ * AI translation draft (Phase 4.2, Sunday Pro). The caller supplies the source
+ * lyrics + their copyright context; the API enforces the same copyright gate
+ * (PD or the user's own upload only). Lyrics are passed in rather than read
+ * from the catalog because we don't store full lyrics we can't host.
+ */
+export const TranslateInputSchema = z.object({
+  source_title: z.string().min(1).max(300),
+  source_lyrics: z.string().min(1).max(20000),
+  source_language: z.string().min(2).max(8),
+  target_language: z.string().min(2).max(8),
+  style: z.string().max(200).optional(),
+  copyright_status: CopyrightStatusSchema.default("unknown"),
+  /** The caller asserts these lyrics are their own upload (gives translate rights). */
+  source_is_user_upload: z.boolean().default(false),
+});
+
 /** Transposition request. Provide chords[] or a chordpro blob, plus a target. */
 export const TransposeInputSchema = z
   .object({

@@ -20,6 +20,7 @@ import { licensingRoutes } from "./routes/licensing";
 import { transposeRoutes } from "./routes/transpose";
 import { matchingRoutes } from "./routes/matching";
 import { sourcesRoutes } from "./routes/sources";
+import { translateRoutes } from "./routes/translate";
 import { rateLimit } from "./middleware/rateLimit";
 
 const app = new Hono();
@@ -67,6 +68,7 @@ app.get("/health", async (c) => {
   return c.json({ ok, version: "0.1.0", checks }, ok ? 200 : 503);
 });
 
+app.route("/v1/songs/translate", translateRoutes); // before /v1/songs so it matches first
 app.route("/v1/songs",        songsRoutes);
 app.route("/v1/recommend",    recommendRoutes);
 app.route("/v1/usage",        usageRoutes);

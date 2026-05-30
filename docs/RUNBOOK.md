@@ -49,10 +49,18 @@ curl -X POST localhost:3001/v1/songs/semantic-search \
   -H 'content-type: application/json' \
   -d '{"query":"grace and salvation for sinners"}'
 
-# recommendations — grounded in the catalog, with reasons
+# recommendations — grounded in the catalog, with reasons.
+# With ANTHROPIC_API_KEY set, an LLM re-orders + re-explains the picks
+# ("reranked": true); without a key it's the heuristic ranker (identical shape).
 curl -X POST localhost:3001/v1/recommend \
   -H 'content-type: application/json' \
   -d '{"theme":"grace","duration_min":25}'
+
+# AI translation draft (Sunday Pro — needs ANTHROPIC_API_KEY). PD or your own
+# upload only; returns a per-line singability report + confidence + disclaimer.
+curl -X POST localhost:3001/v1/songs/translate \
+  -H 'content-type: application/json' \
+  -d '{"source_title":"Amazing Grace","source_lyrics":"Amazing grace how sweet the sound\nThat saved a wretch like me","source_language":"en","target_language":"no","copyright_status":"public_domain","style":"traditional Norwegian hymnal"}'
 
 # instant transposition
 curl -X POST localhost:3001/v1/transpose \
@@ -95,6 +103,9 @@ pnpm -r test        # ~166 unit/integration tests (needs db:up for db/search/api
   embedder later behind `getEmbedder()` — same interface, same dims, then
   `pnpm embed --all` to re-embed.
 - `bun` lives at `~/.bun/bin` if it isn't on your PATH.
+- **AI features (LLM recommendation re-ranking + AI translation drafts) are
+  built**, gated behind `ANTHROPIC_API_KEY` via `getLlmClient()`. No key ⇒ the
+  free-tier heuristic path; translation (a Pro feature with no heuristic) returns
+  422 until a key is set.
 - Blocked on external credentials (not built): Hymnary/Spotify/YouTube
-  connectors, AI translation drafts, LLM recommendation re-ranking, real
-  Sunday-account auth + per-user visibility/moderation.
+  connectors, real Sunday-account auth + per-user visibility/moderation.

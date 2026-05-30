@@ -19,6 +19,8 @@ import type {
   RecommendInput,
   RecommendOutput,
   LicensingReport,
+  TranslateInput,
+  TranslationDraftResult,
 } from "@sundaysong/shared";
 
 export interface ClientConfig {
@@ -115,6 +117,9 @@ export class SundaySong {
     /** Contribute a song (Phase 8.1) — requires `license_declaration: true`. */
     upload: (input: SongUploadInput): Promise<{ song_id: string; variant_id: string; action: "added" | "updated" }> =>
       this.request("/v1/songs", { method: "POST", body: JSON.stringify(input) }),
+    /** AI translation draft (Phase 4.2, Sunday Pro) — PD or your own upload only. */
+    translate: (input: TranslateInput): Promise<TranslationDraftResult> =>
+      this.request("/v1/songs/translate", { method: "POST", body: JSON.stringify(input) }),
   };
 
   readonly recommend = (input: RecommendInput): Promise<RecommendOutput> =>
@@ -348,4 +353,4 @@ export interface UsageLogPayload {
   idempotency_key: string;
 }
 
-export type { Song, SongVariant, SearchHit, RecommendInput, RecommendOutput, LicensingReport, SongSection, NordicMetadata };
+export type { Song, SongVariant, SearchHit, RecommendInput, RecommendOutput, LicensingReport, SongSection, NordicMetadata, TranslateInput, TranslationDraftResult };
