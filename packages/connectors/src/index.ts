@@ -45,3 +45,16 @@ export {
   SalmebokConnector,
   SALMEBOK_CATALOG_SIZE,
 } from "./sources/salmebok";
+export {
+  type RawHymnaryText,
+  type RawHymnaryAuthor,
+  type CopyrightDecision,
+  type HymnaryConnectorOptions,
+  HymnaryConnector,
+  normalizeHymnary,
+  decideCopyright,
+  parseHymnaryYear,
+  HYMNARY_API_BASE,
+  PD_PUBLICATION_CUTOFF,
+  PD_LIFE_PLUS_YEARS,
+} from "./sources/hymnary";
