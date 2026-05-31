@@ -15,6 +15,12 @@ export {
   relativePc,
   keyCompatibilityScore,
 } from "./keyFlow";
+export {
+  type EnergySignals,
+  type EnergyEstimate,
+  bpmEnergy,
+  estimateEnergy,
+} from "./energy";
 export { type Chord, parseChord, chordToString, transposeChord, transposeChordSymbol } from "./chord";
 export {
   type TransposeToKeyResult,
