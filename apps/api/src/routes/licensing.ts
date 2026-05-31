@@ -4,8 +4,19 @@ import { zValidator } from "@hono/zod-validator";
 import { LicensingReportInputSchema, CoverageInputSchema } from "@sundaysong/shared";
 import { computeCoverage, buildLicensingReport, reportCsv } from "@sundaysong/licensing";
 import { getSql, getChurchLicensing, usageForPeriod, getSongsByIds } from "@sundaysong/db";
+import { churchScoped } from "../middleware/sundayAuth";
 
 export const licensingRoutes = new Hono();
+
+/** Pull the target church id out of the JSON body for the church guard. */
+async function churchFromBody(c: { req: { json: () => Promise<unknown> } }): Promise<string | undefined> {
+  try {
+    const body = (await c.req.json()) as { church_id?: unknown };
+    return typeof body.church_id === "string" ? body.church_id : undefined;
+  } catch {
+    return undefined;
+  }
+}
 
 /**
  * POST /v1/licensing/coverage
@@ -37,6 +48,8 @@ licensingRoutes.post(
  */
 licensingRoutes.post(
   "/report",
+  // Opt-in Sunday auth (no-op until the platform JWKS is configured).
+  churchScoped((c) => churchFromBody(c)),
   zValidator("json", LicensingReportInputSchema),
   async (c) => {
     const { church_id, from, to } = c.req.valid("json");
@@ -65,6 +78,7 @@ licensingRoutes.post(
  */
 licensingRoutes.post(
   "/report.csv",
+  churchScoped((c) => churchFromBody(c)),
   zValidator("json", LicensingReportInputSchema),
   async (c) => {
     const { church_id, from, to } = c.req.valid("json");

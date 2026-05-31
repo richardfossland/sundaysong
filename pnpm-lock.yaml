@@ -44,6 +44,9 @@ importers:
       hono:
         specifier: ^4.6.0
         version: 4.12.23
+      jose:
+        specifier: ^6.2.3
+        version: 6.2.3
     devDependencies:
       '@types/bun':
         specifier: ^1.1.0
@@ -110,6 +113,9 @@ importers:
 
   packages/ai:
     dependencies:
+      '@sundaysong/music':
+        specifier: workspace:*
+        version: link:../music
       '@sundaysong/shared':
         specifier: workspace:*
         version: link:../shared
@@ -510,6 +516,9 @@ packages:
     resolution: {integrity: sha512-eIaZ9qDgu7XV0pxOCrg7/WhnQ6Ivm22UcxhXx/A3dcbqbbYgBEkc6e/J/s7j2tS96zoB0S9VBdLwQNCWwUo4LA==}
     engines: {node: '>=16.9.0'}
 
+  jose@6.2.3:
+    resolution: {integrity: sha512-YYVDInQKFJfR/xa3ojUTl8c2KoTwiL1R5Wg9YCydwH0x0B9grbzlg5HC7mMjCtUJjbQ/YnGEZIhI5tCgfTb4Hw==}
+
   nanoid@3.3.12:
     resolution: {integrity: sha512-ZB9RH/39qpq5Vu6Y+NmUaFhQR6pp+M2Xt76XBnEwDaGcVAqhlvxrl3B2bKS5D3NH3QR76v3aSrKaF/Kiy7lEtQ==}
     engines: {node: ^10 || ^12 || ^13.7 || ^14 || >=15.0.1}
@@ -793,6 +802,8 @@ snapshots:
     optional: true
 
   hono@4.12.23: {}
+
+  jose@6.2.3: {}
 
   nanoid@3.3.12: {}
 

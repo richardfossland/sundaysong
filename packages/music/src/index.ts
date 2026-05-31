@@ -9,6 +9,12 @@
 
 export { type Dialect, SHARP_NAMES, FLAT_NAMES, noteToPc, pcToNote } from "./notes";
 export { type Key, parseKey, keyPrefersFlats, keyToString, semitonesBetween } from "./keys";
+export {
+  type KeyCompatibility,
+  circleOfFifthsDistance,
+  relativePc,
+  keyCompatibilityScore,
+} from "./keyFlow";
 export { type Chord, parseChord, chordToString, transposeChord, transposeChordSymbol } from "./chord";
 export {
   type TransposeToKeyResult,

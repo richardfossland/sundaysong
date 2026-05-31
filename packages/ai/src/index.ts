@@ -37,6 +37,10 @@ export {
   getLlmClient,
 } from "./llm";
 export {
+  type KeyFlowOptions,
+  applyKeyFlow,
+} from "./keyFlow";
+export {
   type RerankResponse,
   RERANK_SYSTEM_PROMPT,
   buildRerankPrompt,

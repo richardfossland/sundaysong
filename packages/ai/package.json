@@ -12,7 +12,8 @@
     "build":     "echo no-build"
   },
   "dependencies": {
-    "@sundaysong/shared": "workspace:*"
+    "@sundaysong/shared": "workspace:*",
+    "@sundaysong/music": "workspace:*"
   },
   "devDependencies": {
     "@types/bun": "^1.1.0",
