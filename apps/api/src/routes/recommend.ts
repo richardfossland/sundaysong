@@ -3,7 +3,8 @@ import { zValidator } from "@hono/zod-validator";
 
 import { RecommendInputSchema } from "@sundaysong/shared";
 import { getSql, nearestSongs, listSongs, listVariantsForSong, type NearestSong } from "@sundaysong/db";
-import { getEmbedder, rerankPicks, applyKeyFlow, getLlmClient, type Candidate } from "@sundaysong/ai";
+import { getEmbedder, rerankPicks, applyKeyFlow, applyArc, getLlmClient, type Candidate } from "@sundaysong/ai";
+import { parseKey, type EnergySignals } from "@sundaysong/music";
 
 export const recommendRoutes = new Hono();
 
@@ -54,6 +55,10 @@ recommendRoutes.post("/", zValidator("json", RecommendInputSchema), async (c) =>
   const keyForSong = async (id: string): Promise<string | null> =>
     (await listVariantsForSong(sql, id)).find((v) => v.key)?.key ?? null;
 
+  // First variant carrying a BPM (for energy estimation), independent of key.
+  const bpmForSong = async (id: string): Promise<number | null> =>
+    (await listVariantsForSong(sql, id)).find((v) => v.bpm != null)?.bpm ?? null;
+
   const pickIds = ranked.picks.map((p) => p.song_id);
   const keyEntries = await Promise.all(pickIds.map(async (id) => [id, await keyForSong(id)] as const));
   const keysByPickId = Object.fromEntries(keyEntries);
@@ -72,6 +77,34 @@ recommendRoutes.post("/", zValidator("json", RecommendInputSchema), async (c) =>
     }
   }
 
+  // Use case D: "build a set with a rising / reflective / celebratory / lament
+  // arc" — re-sequence the chosen picks by per-song energy so the running order
+  // matches the requested arc shape. Energy comes from each pick's BPM + key +
+  // themes (estimateEnergy in @sundaysong/music). Offline, no LLM; degrades to
+  // a no-op when no arc is requested.
+  // INFRA-UNVERIFIED: this route needs Postgres (variants for BPM/key); the
+  // arc sequencing + energy estimation are unit-tested in @sundaysong/{ai,music}.
+  let arcApplied = false;
+  if (input.arc) {
+    const songById0 = new Map(near.map((n) => [n.id, n]));
+    const bpmEntries = await Promise.all(ordered.picks.map(async (p) => [p.song_id, await bpmForSong(p.song_id)] as const));
+    const bpmByPickId = Object.fromEntries(bpmEntries);
+    const signalsByPickId: Record<string, EnergySignals> = {};
+    for (const p of ordered.picks) {
+      const song = songById0.get(p.song_id);
+      const keyStr = keysByPickId[p.song_id];
+      signalsByPickId[p.song_id] = {
+        bpm: bpmByPickId[p.song_id],
+        key: keyStr ? parseKey(keyStr) : null,
+        themes: song?.themes ?? [],
+        title: song?.canonical_title ?? null,
+      };
+    }
+    const arced = applyArc(ordered, { arc: input.arc, signalsByPickId });
+    ordered = arced;
+    arcApplied = arced.arcApplied;
+  }
+
   // Hydrate the chosen picks back to full songs (+ the suggested key).
   const songById = new Map(near.map((n) => [n.id, n]));
   const picks = ordered.picks.map((p) => {
@@ -85,5 +118,6 @@ recommendRoutes.post("/", zValidator("json", RecommendInputSchema), async (c) =>
     summary: ordered.summary,
     reranked: ranked.reranked ?? false,
     key_flow: keyFlow,
+    arc: arcApplied ? input.arc : undefined,
   });
 });

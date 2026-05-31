@@ -41,6 +41,12 @@ export {
   applyKeyFlow,
 } from "./keyFlow";
 export {
+  type ArcShape,
+  type ArcOptions,
+  arcCurve,
+  applyArc,
+} from "./arc";
+export {
   type RerankResponse,
   RERANK_SYSTEM_PROMPT,
   buildRerankPrompt,
