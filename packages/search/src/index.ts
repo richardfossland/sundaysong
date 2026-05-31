@@ -15,5 +15,16 @@ export {
   type SearchResult,
 } from "./client";
 export { type SongDoc, songToSearchDoc, SONG_INDEX_SETTINGS } from "./songDoc";
+export {
+  type RankWeights,
+  type RankedDoc,
+  DEFAULT_RANK_WEIGHTS,
+  foldNordic,
+  tokenize,
+  titleMatchScore,
+  docTitleScore,
+  rankScore,
+  rankDocs,
+} from "./ranking";
 export { reindexSongs } from "./reindex";
 export { DEFAULT_MEILI_HOST, DEFAULT_MEILI_KEY, SONG_INDEX } from "./config";
