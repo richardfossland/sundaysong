@@ -22,6 +22,7 @@ import { matchingRoutes } from "./routes/matching";
 import { sourcesRoutes } from "./routes/sources";
 import { translateRoutes } from "./routes/translate";
 import { recommendAfterRoutes } from "./routes/recommendAfter";
+import { recommendSeasonRoutes } from "./routes/recommendSeason";
 import { rateLimit } from "./middleware/rateLimit";
 
 const app = new Hono();
@@ -71,7 +72,8 @@ app.get("/health", async (c) => {
 
 app.route("/v1/songs/translate", translateRoutes); // before /v1/songs so it matches first
 app.route("/v1/songs",            songsRoutes);
-app.route("/v1/recommend/after",  recommendAfterRoutes); // before /v1/recommend so it matches first
+app.route("/v1/recommend/after",  recommendAfterRoutes);  // before /v1/recommend so it matches first
+app.route("/v1/recommend/season", recommendSeasonRoutes); // before /v1/recommend so it matches first
 app.route("/v1/recommend",        recommendRoutes);
 app.route("/v1/usage",        usageRoutes);
 app.route("/v1/licensing",    licensingRoutes);

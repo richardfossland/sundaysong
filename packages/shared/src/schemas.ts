@@ -41,6 +41,44 @@ export const RecommendInputSchema = z.object({
   language: z.string().optional(),
 });
 
+export const LiturgicalSeasonSchema = z.enum([
+  "Advent",
+  "Christmas",
+  "Epiphany",
+  "Lent",
+  "HolyWeek",
+  "Easter",
+  "Pentecost",
+  "Trinity",
+  "AllSaints",
+  "OrdinaryTime",
+]);
+
+export const RecommendSeasonInputSchema = z.object({
+  season: LiturgicalSeasonSchema,
+  limit: z.number().int().min(1).max(20).default(5),
+  language: z.string().optional(),
+});
+
+/**
+ * Extended schema used only by the API route. Adds `_candidates` for offline
+ * unit-testing (injected directly, bypassing the DB). The field is ignored in
+ * production when the DB path is taken.
+ */
+export const RecommendSeasonRouteSchema = RecommendSeasonInputSchema.extend({
+  _candidates: z
+    .array(
+      z.object({
+        id: z.string(),
+        title: z.string(),
+        themes: z.array(z.string()).default([]),
+        language: z.string().optional(),
+        semantic_score: z.number().min(0).max(1).default(0),
+      }),
+    )
+    .optional(),
+});
+
 export const RecommendAfterInputSchema = z.object({
   songId: z.string().min(1),
   limit: z.number().int().min(1).max(20).default(5),

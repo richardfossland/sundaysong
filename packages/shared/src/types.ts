@@ -137,6 +137,49 @@ export interface RecommendOutput {
   reranked: boolean;
 }
 
+// ── Liturgical season recommendation (use case C) ───────────────────────────
+
+/**
+ * The major seasons and feasts of the liturgical year as used by most Western
+ * Christian traditions (including the Church of Norway / Den norske kirke).
+ * Values are lowercase-hyphen slugs so they are URL-safe and schema-friendly.
+ */
+export type LiturgicalSeason =
+  | "Advent"
+  | "Christmas"
+  | "Epiphany"
+  | "Lent"
+  | "HolyWeek"
+  | "Easter"
+  | "Pentecost"
+  | "Trinity"
+  | "AllSaints"
+  | "OrdinaryTime";
+
+export interface RecommendSeasonInput {
+  season: LiturgicalSeason;
+  /** Maximum number of songs to return (default 5, max 20). */
+  limit?: number;
+  /** Restrict to a specific language. */
+  language?: string;
+}
+
+export interface RecommendSeasonPick {
+  song_id: string;
+  title: string;
+  /** Semantic + thematic relevance score 0..1. */
+  score: number;
+  /** Why this song fits the season. */
+  reason: string;
+}
+
+export interface RecommendSeasonOutput {
+  season: LiturgicalSeason;
+  picks: RecommendSeasonPick[];
+  /** Human-readable summary of the season and the recommended set. */
+  summary: string;
+}
+
 // ── Recommend-after (use case B: "songs that flow after X") ─────────────────
 
 export interface RecommendAfterInput {

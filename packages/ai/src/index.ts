@@ -59,6 +59,15 @@ export {
   rerankPicks,
 } from "./rerank";
 export {
+  type SeasonDefinition,
+  type SeasonCandidate,
+  type SeasonPick,
+  type RankSeasonResult,
+  SEASON_DEFINITIONS,
+  rankSeason,
+  buildSeasonSummary,
+} from "./season";
+export {
   type LineMetric,
   type SingabilityReport,
   type TranslatableContext,
