@@ -38,7 +38,11 @@ export {
 } from "./llm";
 export {
   type KeyFlowOptions,
+  type AfterCandidate,
+  type AfterPick,
+  type RankAfterResult,
   applyKeyFlow,
+  rankAfter,
 } from "./keyFlow";
 export {
   type ArcShape,

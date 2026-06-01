@@ -12,6 +12,8 @@ export { type Key, parseKey, keyPrefersFlats, keyToString, semitonesBetween } fr
 export {
   type KeyCompatibility,
   circleOfFifthsDistance,
+  circleOfFifthsDistanceByName,
+  keyFlowScore,
   relativePc,
   keyCompatibilityScore,
 } from "./keyFlow";

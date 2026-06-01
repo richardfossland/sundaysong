@@ -137,6 +137,32 @@ export interface RecommendOutput {
   reranked: boolean;
 }
 
+// ── Recommend-after (use case B: "songs that flow after X") ─────────────────
+
+export interface RecommendAfterInput {
+  /** The song we are flowing FROM — look up its key + BPM from variants. */
+  songId: string;
+  /** How many results to return (default 5, max 20). */
+  limit?: number;
+}
+
+export interface RecommendAfterPick {
+  song_id: string;
+  title: string;
+  /** Combined key-flow + BPM-proximity score 0..1. */
+  score: number;
+  reason: string;
+  suggested_key?: string | null;
+}
+
+export interface RecommendAfterOutput {
+  picks: RecommendAfterPick[];
+  /** The from-song's key as used for scoring (null when not found). */
+  from_key: string | null;
+  /** True when key-flow scoring was applied. */
+  key_flow: boolean;
+}
+
 // ── AI translation draft (Phase 4.2, Sunday Pro) ────────────────────────────
 
 export interface TranslateInput {

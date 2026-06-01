@@ -18,6 +18,8 @@ import type {
   SearchHit,
   RecommendInput,
   RecommendOutput,
+  RecommendAfterInput,
+  RecommendAfterOutput,
   LicensingReport,
   TranslateInput,
   TranslationDraftResult,
@@ -122,11 +124,25 @@ export class SundaySong {
       this.request("/v1/songs/translate", { method: "POST", body: JSON.stringify(input) }),
   };
 
-  readonly recommend = (input: RecommendInput): Promise<RecommendOutput> =>
-    this.request("/v1/recommend", {
-      method: "POST",
-      body: JSON.stringify(input),
-    });
+  readonly recommend = Object.assign(
+    (input: RecommendInput): Promise<RecommendOutput> =>
+      this.request("/v1/recommend", {
+        method: "POST",
+        body: JSON.stringify(input),
+      }),
+    {
+      /**
+       * Use case B — "songs that flow well after song X".
+       * Ranks the catalog by circle-of-fifths key compatibility + BPM proximity.
+       * Pure music-theory; no LLM required.
+       */
+      after: (input: RecommendAfterInput): Promise<RecommendAfterOutput> =>
+        this.request("/v1/recommend/after", {
+          method: "POST",
+          body: JSON.stringify(input),
+        }),
+    },
+  );
 
   /** Instant transposition — re-key chords or a ChordPro chart. */
   readonly transpose = (input: TransposeInput): Promise<TransposeResult> =>
@@ -353,4 +369,4 @@ export interface UsageLogPayload {
   idempotency_key: string;
 }
 
-export type { Song, SongVariant, SearchHit, RecommendInput, RecommendOutput, LicensingReport, SongSection, NordicMetadata, TranslateInput, TranslationDraftResult };
+export type { Song, SongVariant, SearchHit, RecommendInput, RecommendOutput, RecommendAfterInput, RecommendAfterOutput, LicensingReport, SongSection, NordicMetadata, TranslateInput, TranslationDraftResult };

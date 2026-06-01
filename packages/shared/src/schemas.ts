@@ -41,6 +41,30 @@ export const RecommendInputSchema = z.object({
   language: z.string().optional(),
 });
 
+export const RecommendAfterInputSchema = z.object({
+  songId: z.string().min(1),
+  limit: z.number().int().min(1).max(20).default(5),
+});
+
+/**
+ * Extended schema used only by the API route. Adds `_candidates` for offline
+ * unit-testing (injected directly, bypassing the DB). The field is ignored in
+ * production when the DB path is taken.
+ */
+export const RecommendAfterRouteSchema = RecommendAfterInputSchema.extend({
+  _candidates: z
+    .array(
+      z.object({
+        id: z.string(),
+        title: z.string(),
+        key: z.string().nullable().optional(),
+        bpm: z.number().nullable().optional(),
+        popularity: z.number().optional(),
+      }),
+    )
+    .optional(),
+});
+
 export const LicensingReportInputSchema = z.object({
   church_id: z.string().uuid(),
   from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),

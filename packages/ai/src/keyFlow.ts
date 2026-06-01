@@ -14,7 +14,7 @@
  * result under the same `/v1/recommend` endpoint.
  */
 
-import { parseKey, keyCompatibilityScore, type Key } from "@sundaysong/music";
+import { parseKey, keyCompatibilityScore, keyFlowScore, type Key } from "@sundaysong/music";
 
 import type { RankResult, RankedPick } from "./recommend";
 
@@ -75,5 +75,116 @@ export function applyKeyFlow(result: RankResult, opts: KeyFlowOptions): RankResu
     picks,
     summary: `${result.summary} Ordered to flow from ${opts.fromKey}.`,
     keyFlow: true,
+  };
+}
+
+// ── Use case B: dedicated "after" ranker ─────────────────────────────────────
+
+/** A song candidate enriched with its key and BPM for flow ranking. */
+export interface AfterCandidate {
+  id: string;
+  title: string;
+  key?: string | null;
+  bpm?: number | null;
+  /** Optional popularity or heuristic score (0..1). Used as a tiebreaker. */
+  popularity?: number;
+}
+
+/** One item in the ranked "after" result. */
+export interface AfterPick {
+  song_id: string;
+  title: string;
+  /** Combined 0..1 flow+BPM score. */
+  score: number;
+  /** Human-readable explanation of why this song flows well. */
+  reason: string;
+  suggested_key?: string | null;
+}
+
+export interface RankAfterResult {
+  picks: AfterPick[];
+  /** Key of the from-song as parsed (echoed back for the API response). */
+  from_key: string | null;
+  /** True when key flow was applied (from-key was resolvable). */
+  key_flow: boolean;
+}
+
+/** BPM weight: songs within 20 BPM get a bonus that decays linearly. */
+const BPM_BONUS_MAX = 0.15;
+const BPM_BONUS_WINDOW = 20;
+
+/**
+ * Rank `candidates` by how well they flow after a song in `fromKey` with BPM
+ * `fromBpm`. Pure, offline, deterministic — no LLM, no DB.
+ *
+ * Scoring:
+ *   keyScore  = keyFlowScore(fromKey, candidate.key)  [0..1, per spec table]
+ *   bpmBonus  = max(0, 1 - |fromBpm - bpm| / BPM_BONUS_WINDOW) * BPM_BONUS_MAX
+ *             (only applied when both BPMs are known and within the window)
+ *   popularity = popularity ?? 0  (gentle tiebreaker, max 0.1 contribution)
+ *   final     = keyScore + bpmBonus + 0.1 * popularity  (normalised to 0..1)
+ */
+export function rankAfter(
+  fromKey: string | null | undefined,
+  fromBpm: number | null | undefined,
+  candidates: AfterCandidate[],
+  limit = 5,
+): RankAfterResult {
+  const resolvedFromKey = fromKey ?? null;
+  const hasKey = resolvedFromKey !== null && parseKey(resolvedFromKey) !== null;
+
+  const scored = candidates.map((c) => {
+    // Key compatibility
+    let keyScore = 0.5; // neutral when from-key unknown
+    if (hasKey) {
+      keyScore = c.key ? keyFlowScore(resolvedFromKey!, c.key) : 0.5;
+    }
+
+    // BPM proximity bonus
+    let bpmBonus = 0;
+    if (typeof fromBpm === "number" && typeof c.bpm === "number" && c.bpm > 0) {
+      const diff = Math.abs(fromBpm - c.bpm);
+      if (diff < BPM_BONUS_WINDOW) {
+        bpmBonus = (1 - diff / BPM_BONUS_WINDOW) * BPM_BONUS_MAX;
+      }
+    }
+
+    // Popularity tiebreaker (soft)
+    const popBonus = 0.1 * Math.min(1, (c.popularity ?? 0));
+
+    const raw = keyScore + bpmBonus + popBonus;
+    // Normalise — max possible is 1.0 + 0.15 + 0.1 = 1.25, cap at 1.
+    const score = Math.min(1, Math.round(raw * 1000) / 1000);
+
+    // Build a human reason
+    const parts: string[] = [];
+    if (hasKey && c.key) {
+      const ks = keyFlowScore(resolvedFromKey!, c.key);
+      if (ks >= 1.0) parts.push(`same key as ${resolvedFromKey}`);
+      else if (ks >= 0.85) parts.push(`closely related key (${c.key})`);
+      else if (ks >= 0.65) parts.push(`compatible key (${c.key})`);
+      else parts.push(`key ${c.key}`);
+    }
+    if (bpmBonus > 0 && c.bpm) parts.push(`similar tempo (${c.bpm} BPM)`);
+    if (parts.length === 0) parts.push("catalog match");
+    const reason = parts.join(" · ");
+
+    return { c, score, reason };
+  });
+
+  scored.sort((a, b) => b.score - a.score);
+
+  const picks: AfterPick[] = scored.slice(0, limit).map(({ c, score, reason }) => ({
+    song_id: c.id,
+    title: c.title,
+    score,
+    reason,
+    suggested_key: c.key ?? null,
+  }));
+
+  return {
+    picks,
+    from_key: resolvedFromKey,
+    key_flow: hasKey,
   };
 }

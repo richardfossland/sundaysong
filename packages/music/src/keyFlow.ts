@@ -14,7 +14,7 @@
  */
 
 import type { Key } from "./keys";
-import { keyToString } from "./keys";
+import { keyToString, parseKey } from "./keys";
 
 /**
  * Position of a major-key tonic on the circle of fifths, where C = 0 and each
@@ -98,4 +98,50 @@ export function keyCompatibilityScore(from: Key, to: Key): KeyCompatibility {
       ? `a distant key change from ${keyToString(from)} (${keyToString(to)})`
       : `${dist} steps from ${keyToString(from)} on the circle of fifths`;
   return { score: Math.round(score * 100) / 100, reason };
+}
+
+// ── String-key helpers for recommendation use case B ─────────────────────────
+
+/**
+ * Circle-of-fifths distance between two key names (e.g. "C", "Am", "Bb").
+ * Strips the mode and operates on the tonic pitch classes. Returns 0..6 (the
+ * same range as the pitch-class variant). Returns 6 (worst) if either key
+ * string cannot be parsed.
+ */
+export function circleOfFifthsDistanceByName(a: string, b: string): number {
+  const ka = parseKey(a);
+  const kb = parseKey(b);
+  if (!ka || !kb) return 6;
+  return circleOfFifthsDistance(ka.pc, kb.pc);
+}
+
+/**
+ * Compatibility score for recommendation use case B using the simplified
+ * distance table requested by the spec:
+ *   0 steps → 1.0, 1 → 0.85, 2 → 0.65, 3 → 0.5, 4 → 0.35, 5 → 0.2, 6 → 0.1
+ *
+ * Parallel major/minor (same tonic, opposite mode) is treated as distance 0
+ * (score 1.0) per spec. Relative major/minor (different tonic but shared key
+ * signature) is treated as distance 1 (score 0.85).
+ *
+ * Returns 0 when either key string is invalid (safest degradation — ensures
+ * the caller can still rank but won't up-weight unknown keys).
+ */
+export function keyFlowScore(fromKey: string, toKey: string): number {
+  const from = parseKey(fromKey);
+  const to = parseKey(toKey);
+  if (!from || !to) return 0;
+
+  const sameTonic = ((from.pc - to.pc + 12) % 12) === 0;
+
+  // Same key or parallel major/minor → perfect flow.
+  if (sameTonic) return 1.0;
+
+  // Relative major/minor → one-step equivalent.
+  const relPc = from.minor ? (from.pc + 3) % 12 : (from.pc + 9) % 12;
+  if (to.pc === relPc && to.minor !== from.minor) return 0.85;
+
+  const dist = circleOfFifthsDistance(from.pc, to.pc);
+  const TABLE: Record<number, number> = { 0: 1.0, 1: 0.85, 2: 0.65, 3: 0.5, 4: 0.35, 5: 0.2, 6: 0.1 };
+  return TABLE[dist] ?? 0.1;
 }
