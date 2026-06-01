@@ -1,6 +1,6 @@
 {
   "name": "sundaysong",
-  "version": "0.1.0",
+  "version": "0.2.0-beta",
   "private": true,
   "type": "module",
   "description": "Worship song discovery + AI intelligence service — part of the Sunday suite",
