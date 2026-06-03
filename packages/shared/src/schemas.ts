@@ -119,6 +119,34 @@ export const RecommendInputSchema = z.object({
   language: z.string().optional(),
 });
 
+/**
+ * Extended schema used only by the API route. Adds `_picks` (and `_after_key`)
+ * for offline unit-testing: a fully-hydrated candidate pool is injected so the
+ * route can run its heuristic ranking, key-flow and arc sequencing without a DB
+ * or embedder. Each entry carries the full `song`, its retrieval
+ * `semantic_score`, and the variant `key` / `bpm` the route would otherwise
+ * resolve via `listVariantsForSong`. `_after_key` stands in for the key of the
+ * song named by `after_song_id`. These fields are never set in production —
+ * when `_picks` is absent the route takes the real DB + pgvector path.
+ */
+export const RecommendRouteSchema = RecommendInputSchema.extend({
+  _picks: z
+    .array(
+      z.object({
+        // The hydrated catalog song the route would return verbatim. Loosely
+        // typed (passthrough) so a test fixture only has to fill the fields it
+        // asserts on; the route hydrates the whole object back into `picks`.
+        song: z.object({ id: z.string() }).passthrough(),
+        semantic_score: z.number().min(0).max(1).default(0),
+        key: z.string().nullable().optional(),
+        bpm: z.number().nullable().optional(),
+      }),
+    )
+    .optional(),
+  /** Key of the `after_song_id` song (resolved from a variant in production). */
+  _after_key: z.string().nullable().optional(),
+});
+
 export const LiturgicalSeasonSchema = z.enum([
   "Advent",
   "Christmas",

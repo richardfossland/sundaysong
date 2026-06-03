@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
 
-import { RecommendInputSchema } from "@sundaysong/shared";
+import { RecommendRouteSchema, type Song } from "@sundaysong/shared";
 import { getSql, nearestSongs, listSongs, listVariantsForSong, type NearestSong } from "@sundaysong/db";
 import { getEmbedder, rerankPicks, applyKeyFlow, applyArc, getLlmClient, type Candidate } from "@sundaysong/ai";
 import { parseKey, type EnergySignals } from "@sundaysong/music";
@@ -14,21 +14,62 @@ export const recommendRoutes = new Hono();
 //   pgvector; heuristic ranking + explanations from @sundaysong/ai always.
 //   When ANTHROPIC_API_KEY is set, an LLM re-orders + re-explains the same
 //   catalog picks (Sunday Pro); with no key it degrades to the heuristic.
-recommendRoutes.post("/", zValidator("json", RecommendInputSchema), async (c) => {
+//
+//   For offline unit tests, pass `_picks` (a fully-hydrated candidate pool) and
+//   optionally `_after_key` in the body to bypass the DB + embedder entirely;
+//   those fields are never set in production.
+recommendRoutes.post("/", zValidator("json", RecommendRouteSchema), async (c) => {
   const input = c.req.valid("json");
-  const sql = getSql();
 
   const queryText = [input.theme, input.scripture, input.description].filter(Boolean).join(" ").trim();
 
-  // Retrieve candidates: semantic when there's a signal, else popular.
+  // The candidate pool, plus the key/bpm we'd resolve from each song's first
+  // variant — sourced either from the DB (production) or from `_picks` (tests).
   let near: NearestSong[];
-  if (queryText) {
-    const embedder = getEmbedder();
-    const [qvec] = await embedder.embed([queryText]);
-    near = await nearestSongs(sql, { vector: qvec!, k: 30, model_version: embedder.modelVersion, language: input.language });
+  const keysByPickId: Record<string, string | null> = {};
+  const bpmByPickId: Record<string, number | null> = {};
+  // From-key for use case B: the key of `after_song_id`.
+  let afterKey: string | null = null;
+
+  if (input._picks) {
+    // Test path — candidates injected fully hydrated; no DB, no embedder.
+    // `_picks[].song` is a passthrough object (tests fill only what they need);
+    // cast it to the catalog Song the route hydrates back into the response.
+    near = input._picks.map((p) => ({ ...(p.song as unknown as Song), score: p.semantic_score }));
+    for (const p of input._picks) {
+      keysByPickId[p.song.id] = p.key ?? null;
+      bpmByPickId[p.song.id] = p.bpm ?? null;
+    }
+    afterKey = input._after_key ?? null;
   } else {
-    const songs = await listSongs(sql, 30);
-    near = songs.map((s) => ({ ...s, score: 0 }));
+    const sql = getSql();
+
+    // Retrieve candidates: semantic when there's a signal, else popular.
+    if (queryText) {
+      const embedder = getEmbedder();
+      const [qvec] = await embedder.embed([queryText]);
+      near = await nearestSongs(sql, { vector: qvec!, k: 30, model_version: embedder.modelVersion, language: input.language });
+    } else {
+      const songs = await listSongs(sql, 30);
+      near = songs.map((s) => ({ ...s, score: 0 }));
+    }
+
+    // First variant carrying a key / a BPM, resolved per song from the DB.
+    const keyForSong = async (id: string): Promise<string | null> =>
+      (await listVariantsForSong(sql, id)).find((v) => v.key)?.key ?? null;
+    const bpmForSong = async (id: string): Promise<number | null> =>
+      (await listVariantsForSong(sql, id)).find((v) => v.bpm != null)?.bpm ?? null;
+
+    await Promise.all(
+      near.map(async (n) => {
+        keysByPickId[n.id] = await keyForSong(n.id);
+        bpmByPickId[n.id] = await bpmForSong(n.id);
+      }),
+    );
+
+    if (input.after_song_id) {
+      afterKey = await keyForSong(input.after_song_id);
+    }
   }
 
   const candidates: Candidate[] = near.map((n) => ({
@@ -50,31 +91,19 @@ recommendRoutes.post("/", zValidator("json", RecommendInputSchema), async (c) =>
     getLlmClient(),
   );
 
-  // Resolve a suggested key (from a variant) for each chosen pick, plus — when
-  // an `after_song_id` is given — the key of the song we're flowing FROM.
-  const keyForSong = async (id: string): Promise<string | null> =>
-    (await listVariantsForSong(sql, id)).find((v) => v.key)?.key ?? null;
-
-  // First variant carrying a BPM (for energy estimation), independent of key.
-  const bpmForSong = async (id: string): Promise<number | null> =>
-    (await listVariantsForSong(sql, id)).find((v) => v.bpm != null)?.bpm ?? null;
-
-  const pickIds = ranked.picks.map((p) => p.song_id);
-  const keyEntries = await Promise.all(pickIds.map(async (id) => [id, await keyForSong(id)] as const));
-  const keysByPickId = Object.fromEntries(keyEntries);
+  // The suggested key per pick (and the from-song key for use case B) were
+  // resolved above — from each song's first variant in production, or from the
+  // injected `_picks` in tests. No further DB access from here on.
 
   // Use case B: "songs that flow well after song X" — re-order the same picks
   // by circle-of-fifths key compatibility with the from-song's key. Offline,
   // no LLM; degrades to a no-op (keyFlow:false) if the from-key isn't known.
   let ordered = ranked;
   let keyFlow = false;
-  if (input.after_song_id) {
-    const fromKey = await keyForSong(input.after_song_id);
-    if (fromKey) {
-      const flowed = applyKeyFlow(ranked, { fromKey, keysByPickId });
-      ordered = flowed;
-      keyFlow = flowed.keyFlow;
-    }
+  if (input.after_song_id && afterKey) {
+    const flowed = applyKeyFlow(ranked, { fromKey: afterKey, keysByPickId });
+    ordered = flowed;
+    keyFlow = flowed.keyFlow;
   }
 
   // Use case D: "build a set with a rising / reflective / celebratory / lament
@@ -87,8 +116,6 @@ recommendRoutes.post("/", zValidator("json", RecommendInputSchema), async (c) =>
   let arcApplied = false;
   if (input.arc) {
     const songById0 = new Map(near.map((n) => [n.id, n]));
-    const bpmEntries = await Promise.all(ordered.picks.map(async (p) => [p.song_id, await bpmForSong(p.song_id)] as const));
-    const bpmByPickId = Object.fromEntries(bpmEntries);
     const signalsByPickId: Record<string, EnergySignals> = {};
     for (const p of ordered.picks) {
       const song = songById0.get(p.song_id);
