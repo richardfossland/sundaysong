@@ -139,6 +139,9 @@ songsRoutes.post("/", zValidator("json", SongUploadInputSchema), async (c) => {
       attribution_text: "User contribution",
     },
     lyricists: body.lyricists,
+    // Open a Phase 8 moderation envelope so the contribution enters the admin
+    // queue as `pending`. Per-user attribution lands with Sunday-account auth.
+    upload: { submitted_by: "anonymous" },
   });
 
   // Index immediately so it shows up in search (best-effort — Postgres is the
@@ -153,7 +156,10 @@ songsRoutes.post("/", zValidator("json", SongUploadInputSchema), async (c) => {
     console.warn("[upload] meili index skipped:", err instanceof Error ? err.message : err);
   }
 
-  return c.json({ song_id: result.song_id, variant_id: result.variant_id, action: result.action }, 201);
+  return c.json(
+    { song_id: result.song_id, variant_id: result.variant_id, action: result.action, upload_id: result.upload_id },
+    201,
+  );
 });
 
 // GET /v1/songs/:id

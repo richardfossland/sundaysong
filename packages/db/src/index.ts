@@ -55,3 +55,14 @@ export {
   type UpsertResult,
   upsertSongWithVariant,
 } from "./repositories/ingest";
+export {
+  type CreateUploadInput,
+  type ModerationNote,
+  createUpload,
+  listUploadsByStatus,
+  getUpload,
+  updateUploadStatus,
+  addModerationNote,
+  moderationHistory,
+  uploadCountsByStatus,
+} from "./repositories/uploads";
