@@ -81,6 +81,9 @@ importers:
       jose:
         specifier: ^6.2.3
         version: 6.2.3
+      zod:
+        specifier: ^3.24.0
+        version: 3.25.76
     devDependencies:
       '@types/bun':
         specifier: ^1.1.0

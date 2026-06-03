@@ -23,6 +23,7 @@ import { sourcesRoutes } from "./routes/sources";
 import { translateRoutes } from "./routes/translate";
 import { recommendAfterRoutes } from "./routes/recommendAfter";
 import { recommendSeasonRoutes } from "./routes/recommendSeason";
+import { adminRoutes } from "./routes/admin";
 import { rateLimit } from "./middleware/rateLimit";
 
 const app = new Hono();
@@ -80,6 +81,7 @@ app.route("/v1/licensing",    licensingRoutes);
 app.route("/v1/transpose",    transposeRoutes);
 app.route("/v1/matching",     matchingRoutes);
 app.route("/v1/sources",      sourcesRoutes);
+app.route("/v1/admin",        adminRoutes); // moderation + analytics (Phase 8/9), admin-scoped
 
 app.notFound((c) => c.json({ error: "not_found", message: "No such endpoint." }, 404));
 app.onError((err, c) => {
