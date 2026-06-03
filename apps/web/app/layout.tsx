@@ -24,6 +24,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           <a className="wordmark" href="/">Sunday<span>Song</span></a>
           <nav>
             <a href="/songs">Search</a>
+            <a href="/recommendations">Recommend</a>
             <a href="/#transpose">Transpose</a>
             <a href="/#licensing">Licensing</a>
             <a href="/sources">Sources</a>

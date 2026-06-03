@@ -17,6 +17,16 @@ import { upsertSongWithVariant } from "../src/repositories/ingest";
 import { logUsage, usageForPeriod } from "../src/repositories/usage";
 import { upsertPerson, lyricistsForSong } from "../src/repositories/persons";
 import { linkTranslation, translationsForSong, translationsForSongs } from "../src/repositories/translations";
+import {
+  createUpload,
+  listUploadsByStatus,
+  getUpload,
+  updateUploadStatus,
+  addModerationNote,
+  moderationHistory,
+  uploadCountsByStatus,
+} from "../src/repositories/uploads";
+import { applyAction } from "@sundaysong/shared";
 
 const base = process.env.DATABASE_URL ?? DEFAULT_DATABASE_URL;
 const withDb = (db: string) => { const u = new URL(base); u.pathname = "/" + db; return u.toString(); };
@@ -43,7 +53,7 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await sql`truncate source, song, song_variant, usage_log, translation, person restart identity cascade`;
+  await sql`truncate source, song, song_variant, usage_log, translation, person, upload restart identity cascade`;
 });
 
 const CHURCH = "00000000-0000-0000-0000-0000000000aa";
@@ -200,5 +210,133 @@ describe("usage_log", () => {
     const rows = await usageForPeriod(sql, CHURCH, "2026-05-01", "2026-06-30");
     expect(rows).toHaveLength(1);
     expect(rows[0]!.idempotency_key).toBe("a");
+  });
+});
+
+describe("uploads (moderation envelope — Phase 8)", () => {
+  async function seedSong(title = "Velsignet er den dag") {
+    return await insertSong(sql, { canonical_title: title, original_language: "no", copyright_status: "public_domain" });
+  }
+
+  test("createUpload starts pending and round-trips the record shape", async () => {
+    const song = await seedSong();
+    const up = await createUpload(sql, {
+      song_id: song.id,
+      title: "Velsignet er den dag",
+      language: "no",
+      copyright_status: "public_domain",
+      submitted_by: "Maria",
+    });
+    expect(up.status).toBe("pending");
+    expect(up.submitted_by).toBe("Maria");
+    expect(up.copyright_status).toBe("public_domain");
+    expect(typeof up.submitted_at).toBe("string"); // ISO string, not a Date
+
+    const got = await getUpload(sql, up.id);
+    expect(got?.id).toBe(up.id);
+    expect(got?.song_id).toBe(song.id);
+    expect(got?.moderator_note).toBeNull();
+  });
+
+  test("listUploadsByStatus filters by status and orders newest first", async () => {
+    const a = await seedSong("Song A");
+    const b = await seedSong("Song B");
+    const c = await seedSong("Song C");
+    const upA = await createUpload(sql, { song_id: a.id, title: "Song A", language: "en" });
+    await createUpload(sql, { song_id: b.id, title: "Song B", language: "en" });
+    const upC = await createUpload(sql, { song_id: c.id, title: "Song C", language: "en" });
+
+    // Approve one so it leaves the pending queue.
+    const decision = applyAction("pending", "approve");
+    expect(decision.ok).toBe(true);
+    await updateUploadStatus(sql, upA.id, decision.status, "approve");
+
+    const all = await listUploadsByStatus(sql);
+    expect(all).toHaveLength(3);
+
+    const pending = await listUploadsByStatus(sql, "pending");
+    expect(pending).toHaveLength(2);
+    expect(pending.every((u) => u.status === "pending")).toBe(true);
+    expect(pending.find((u) => u.id === upA.id)).toBeUndefined(); // approved one is gone
+    expect(pending.find((u) => u.id === upC.id)).toBeDefined();
+
+    const approved = await listUploadsByStatus(sql, "approved");
+    expect(approved).toHaveLength(1);
+    expect(approved[0]!.id).toBe(upA.id);
+  });
+
+  test("updateUploadStatus appends to the note history and surfaces the latest note", async () => {
+    const song = await seedSong();
+    const up = await createUpload(sql, { song_id: song.id, title: "T", language: "no" });
+
+    await updateUploadStatus(sql, up.id, "changes_requested", "request_changes", "Add the chord chart.");
+    await updateUploadStatus(sql, up.id, "resubmitted", "resubmit");
+    await updateUploadStatus(sql, up.id, "approved", "approve", "Looks good now.");
+
+    const final = await getUpload(sql, up.id);
+    expect(final?.status).toBe("approved");
+    expect(final?.moderator_note).toBe("Looks good now."); // latest scalar note
+
+    const history = await moderationHistory(sql, up.id);
+    expect(history).toHaveLength(3);
+    expect(history.map((h) => h.action)).toEqual(["request_changes", "resubmit", "approve"]);
+    expect(history[0]!.note).toBe("Add the chord chart.");
+    expect(history[1]!.note).toBeNull();
+    expect(history[0]!.status).toBe("changes_requested");
+  });
+
+  test("addModerationNote appends without changing status", async () => {
+    const song = await seedSong();
+    const up = await createUpload(sql, { song_id: song.id, title: "T", language: "no" });
+    await addModerationNote(sql, up.id, "Flagging for a second reviewer.");
+
+    const got = await getUpload(sql, up.id);
+    expect(got?.status).toBe("pending"); // unchanged
+    expect(got?.moderator_note).toBe("Flagging for a second reviewer.");
+    expect(await moderationHistory(sql, up.id)).toHaveLength(1);
+  });
+
+  test("uploadCountsByStatus aggregates the queue (analytics view)", async () => {
+    for (const t of ["A", "B", "C"]) {
+      const s = await seedSong("Song " + t);
+      await createUpload(sql, { song_id: s.id, title: "Song " + t, language: "en" });
+    }
+    const oneApproved = await seedSong("Song D");
+    const up = await createUpload(sql, { song_id: oneApproved.id, title: "Song D", language: "en" });
+    await updateUploadStatus(sql, up.id, "approved", "approve");
+
+    const counts = await uploadCountsByStatus(sql);
+    expect(counts.pending).toBe(3);
+    expect(counts.approved).toBe(1);
+  });
+
+  test("upsertSongWithVariant opens a moderation envelope only for user uploads", async () => {
+    // A connector import (no `upload` field) creates no envelope.
+    const connectorRes = await upsertSongWithVariant(sql, {
+      source_name: "hymnary",
+      source_external_id: "no-envelope",
+      song: { canonical_title: "Imported Hymn", original_language: "en", copyright_status: "public_domain" },
+      variant: { title: "Imported Hymn", language: "en" },
+    });
+    expect(connectorRes.upload_id).toBeUndefined();
+    expect(await listUploadsByStatus(sql)).toHaveLength(0);
+
+    // A user contribution (with `upload`) creates a pending envelope in the same tx.
+    const userRes = await upsertSongWithVariant(sql, {
+      source_name: "user_upload",
+      source_kind: "user_upload",
+      source_external_id: crypto.randomUUID(),
+      song: { canonical_title: "My New Song", original_language: "no", copyright_status: "public_domain" },
+      variant: { title: "My New Song", language: "no" },
+      upload: { submitted_by: "Jonas" },
+    });
+    expect(userRes.upload_id).toBeDefined();
+
+    const queue = await listUploadsByStatus(sql, "pending");
+    expect(queue).toHaveLength(1);
+    expect(queue[0]!.id).toBe(userRes.upload_id!);
+    expect(queue[0]!.song_id).toBe(userRes.song_id);
+    expect(queue[0]!.title).toBe("My New Song");
+    expect(queue[0]!.submitted_by).toBe("Jonas");
   });
 });
