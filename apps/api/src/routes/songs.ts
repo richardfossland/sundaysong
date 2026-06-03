@@ -6,9 +6,24 @@ import { SongSearchQuerySchema, SemanticSearchSchema, SongUploadInputSchema } fr
 
 /** The validated body of `POST /v1/songs`, inferred from the shared schema. */
 type SongUploadInput = z.infer<typeof SongUploadInputSchema>;
+import type { Song, SongVariant } from "@sundaysong/shared";
 import { getSql, getSong, getSongsByIds, listVariantsForSong, lyricistsForSong, searchSongsByTitle, translationsForSong, translationsForSongs, nearestSongs, upsertSongWithVariant } from "@sundaysong/db";
-import { MeiliClient, SONG_INDEX, songToSearchDoc } from "@sundaysong/search";
+import { MeiliClient, SONG_INDEX, songToSearchDoc, rankDocs } from "@sundaysong/search";
 import { getEmbedder } from "@sundaysong/ai";
+
+/** A slim translation link as carried on a search/semantic hit. */
+interface SlimTranslation {
+  language: string;
+  song_id: string;
+  title: string;
+}
+
+/** A song with the related rows a search hit needs to render. */
+interface SongWithRelations {
+  song: Song;
+  variants: SongVariant[];
+  translations: SlimTranslation[];
+}
 
 /** The result the upload handler returns to the client. */
 export interface SongUploadResult {
@@ -89,9 +104,62 @@ export function postgresUploadStore(): SongUploadStore {
   };
 }
 
+/**
+ * The data access the read handlers (`/search`, `/semantic-search`) need. Like
+ * `SongUploadStore`, this is a dependency-injection seam: production wires the
+ * Postgres-backed implementation (`postgresSearchStore`); tests inject an
+ * in-memory fake so the Meilisearch path AND the offline Postgres fallback —
+ * including the Nordic-aware re-ranking — can be exercised with no infra.
+ */
+export interface SongSearchStore {
+  /** Resolve a batch of songs (with their relations) by id, preserving the input order. */
+  hydrateByIds(ids: string[]): Promise<SongWithRelations[]>;
+  /**
+   * The offline fallback: trigram title search returning candidate songs with
+   * their relations. The route re-ranks these with the Nordic-aware scorer.
+   */
+  fallbackSearch(q: string, limit: number): Promise<SongWithRelations[]>;
+}
+
+/**
+ * The real read store. Hydrates songs + variants + translations from Postgres.
+ * `hydrateByIds` keeps the order of the ids it's given (so it preserves the
+ * Meili relevance order); `fallbackSearch` returns trigram candidates that the
+ * route then re-ranks.
+ */
+export function postgresSearchStore(): SongSearchStore {
+  const hydrate = async (songs: Song[]): Promise<SongWithRelations[]> => {
+    const sql = getSql();
+    const translationsById = await translationsForSongs(sql, songs.map((s) => s.id));
+    return Promise.all(
+      songs.map(async (song) => ({
+        song,
+        variants: await listVariantsForSong(sql, song.id),
+        translations: slimTranslations(translationsById.get(song.id) ?? []),
+      })),
+    );
+  };
+
+  return {
+    async hydrateByIds(ids) {
+      const sql = getSql();
+      const byId = new Map((await getSongsByIds(sql, ids)).map((s) => [s.id, s]));
+      // Index/DB drift can leave an id without a row — skip it rather than 500.
+      const songs = ids.map((id) => byId.get(id)).filter((s): s is Song => s != null);
+      return hydrate(songs);
+    },
+    async fallbackSearch(q, limit) {
+      const sql = getSql();
+      return hydrate(await searchSongsByTitle(sql, q, limit));
+    },
+  };
+}
+
 export interface SongsRoutesDeps {
   /** The user-contribution ingest store. Defaults to the Postgres-backed one. */
   uploadStore?: SongUploadStore;
+  /** The read store backing `/search` + `/semantic-search`. Defaults to Postgres. */
+  searchStore?: SongSearchStore;
 }
 
 // Flatten translation rows into the lean shape search/semantic hits carry.
@@ -109,11 +177,11 @@ const filterValue = (v: string) => `"${v.replace(/"/g, '\\"')}"`;
 export function createSongsRoutes(deps: SongsRoutesDeps = {}): Hono {
   const routes = new Hono();
   const uploadStore = deps.uploadStore ?? postgresUploadStore();
+  const searchStore = deps.searchStore ?? postgresSearchStore();
 
 // GET /v1/songs/search?q=&language=&themes=&page=&page_size=
 routes.get("/search", zValidator("query", SongSearchQuerySchema), async (c) => {
   const q = c.req.valid("query");
-  const sql = getSql();
 
   try {
     const filters: string[] = [];
@@ -129,43 +197,30 @@ routes.get("/search", zValidator("query", SongSearchQuerySchema), async (c) => {
     });
 
     const ids = res.hits.map((h) => h.id);
-    const byId = new Map((await getSongsByIds(sql, ids)).map((s) => [s.id, s]));
-    const translationsById = await translationsForSongs(sql, ids);
-    const hits = [];
-    for (const id of ids) {
-      const song = byId.get(id);
-      if (!song) continue; // index/DB drift — skip rather than 500
-      hits.push({
-        song,
-        variants: await listVariantsForSong(sql, id),
-        translations: (translationsById.get(id) ?? []).map((t) => ({
-          language: t.language,
-          song_id: t.song_id,
-          title: t.title,
-        })),
-        match_reason: "text" as const,
-        score: 1,
-      });
-    }
+    // Trust Meili's relevance order; emit a uniform score (the engine's ranking,
+    // not ours, decided the order). `hydrateByIds` preserves that order.
+    const hits = (await searchStore.hydrateByIds(ids)).map((h) => ({
+      ...h,
+      match_reason: "text" as const,
+      score: 1,
+    }));
     return c.json({ hits, total: res.estimatedTotalHits, page: q.page, page_size: q.page_size, engine: "meilisearch" });
   } catch {
     // Meilisearch unavailable → fall back to the Postgres trigram search so the
-    // endpoint keeps working (degraded: no facets, no typo tolerance).
-    const songs = await searchSongsByTitle(sql, q.q, q.page_size);
-    const translationsById = await translationsForSongs(sql, songs.map((s) => s.id));
-    const hits = await Promise.all(
-      songs.map(async (song) => ({
-        song,
-        variants: await listVariantsForSong(sql, song.id),
-        translations: (translationsById.get(song.id) ?? []).map((t) => ({
-          language: t.language,
-          song_id: t.song_id,
-          title: t.title,
-        })),
-        match_reason: "text" as const,
-        score: 1,
-      })),
-    );
+    // endpoint keeps working (degraded: no facets, no typo tolerance). We then
+    // re-rank the candidates with the Nordic-aware scorer so the offline path
+    // still orders by real title relevance (folding å/ø/æ etc.) and emits
+    // genuine 0..1 scores instead of a flat trigram order with score:1.
+    const candidates = await searchStore.fallbackSearch(q.q, q.page_size);
+    const byId = new Map(candidates.map((h) => [h.song.id, h]));
+    const docs = candidates.map((h) => songToSearchDoc(h.song, h.variants));
+    const ranked = rankDocs(q.q, docs);
+    const hits = ranked
+      .map((r) => {
+        const found = byId.get(r.doc.id);
+        return found ? { ...found, match_reason: "text" as const, score: r.score } : null;
+      })
+      .filter((h): h is SongWithRelations & { match_reason: "text"; score: number } => h != null);
     return c.json({ hits, total: hits.length, page: q.page, page_size: q.page_size, engine: "postgres_fallback" });
   }
 });
