@@ -4,10 +4,31 @@ import {
   normalizeHymnary,
   decideCopyright,
   parseHymnaryYear,
+  parseTextIdFromLink,
+  parseScriptureItem,
+  parseScriptureResponse,
+  DEFAULT_DISCOVERY_REFERENCES,
   PD_PUBLICATION_CUTOFF,
   PD_LIFE_PLUS_YEARS,
   type RawHymnaryText,
 } from "../src/sources/hymnary";
+
+/**
+ * A single item shaped like Hymnary's real /api/scripture JSON: human-readable,
+ * space-separated keys ("text link", "number of hymnals", "scripture
+ * references", "originalLanguage") and people under role keys.
+ */
+const liveScriptureItem: Record<string, unknown> = {
+  title: "Amazing Grace! how sweet the sound",
+  date: "1779",
+  meter: "8.6.8.6",
+  "place of origin": "England",
+  originalLanguage: "English",
+  "text link": "https://hymnary.org/text/amazing_grace_how_sweet_the_sound",
+  "number of hymnals": 1287,
+  "scripture references": ["1 Chronicles 17:16-17", "Ephesians 2:8"],
+  author: "John Newton",
+};
 
 const NOW = 2026;
 
@@ -154,6 +175,88 @@ describe("normalizeHymnary", () => {
   });
 });
 
+describe("parseTextIdFromLink", () => {
+  test("pulls the slug out of a text-authority URL", () => {
+    expect(parseTextIdFromLink("https://hymnary.org/text/amazing_grace_how_sweet_the_sound")).toBe(
+      "amazing_grace_how_sweet_the_sound",
+    );
+  });
+  test("ignores query/hash after the slug", () => {
+    expect(parseTextIdFromLink("https://hymnary.org/text/foo?bar=1#x")).toBe("foo");
+  });
+  test("returns undefined for a non-text link or empty", () => {
+    expect(parseTextIdFromLink("https://hymnary.org/tune/foo")).toBeUndefined();
+    expect(parseTextIdFromLink(null)).toBeUndefined();
+  });
+});
+
+describe("parseScriptureItem (real Hymnary JSON shape)", () => {
+  test("maps human-readable keys onto our internal RawHymnaryText", () => {
+    const raw = parseScriptureItem(liveScriptureItem)!;
+    expect(raw.text_id).toBe("amazing_grace_how_sweet_the_sound");
+    expect(raw.title).toBe("Amazing Grace! how sweet the sound");
+    expect(raw.language).toBe("English");
+    expect(raw.date).toBe("1779");
+    expect(raw.scripture_references).toEqual(["1 Chronicles 17:16-17", "Ephesians 2:8"]);
+    expect(raw.authors).toEqual([{ name: "John Newton", role: "author" }]);
+  });
+
+  test("a parsed item normalizes to a public-domain song end-to-end", () => {
+    const raw = parseScriptureItem(liveScriptureItem)!;
+    const doc = normalizeHymnary(raw, NOW);
+    expect(doc.copyright_status).toBe("public_domain");
+    expect(doc.canonical_title).toBe("Amazing Grace! how sweet the sound");
+    expect(doc.year_first_published).toBe(1779);
+    expect(doc.lyricists).toEqual(["John Newton"]);
+  });
+
+  test("collects multiple people across role keys, incl. born/died objects", () => {
+    const raw = parseScriptureItem({
+      title: "Old Text, New Tune",
+      "text link": "https://hymnary.org/text/w",
+      author: { name: "Long Dead Poet", died: 1800 },
+      composer: ["Living Composer"],
+      date: 1799,
+    })!;
+    expect(raw.authors).toContainEqual({ name: "Long Dead Poet", role: "author", born: null, died: 1800 });
+    expect(raw.authors).toContainEqual({ name: "Living Composer", role: "composer" });
+    // The living composer must not block PD when the text author is long dead.
+    expect(decideCopyright(raw, NOW).status).toBe("public_domain");
+  });
+
+  test("splits a comma/semicolon scripture-reference string into an array", () => {
+    const raw = parseScriptureItem({
+      title: "T",
+      "text link": "https://hymnary.org/text/t",
+      "scripture references": "Psalm 23; John 10:11",
+    })!;
+    expect(raw.scripture_references).toEqual(["Psalm 23", "John 10:11"]);
+  });
+
+  test("skips an item with no text-authority link (no bogus id minted)", () => {
+    expect(parseScriptureItem({ title: "Linkless", "number of hymnals": 2 })).toBeUndefined();
+  });
+});
+
+describe("parseScriptureResponse", () => {
+  test("accepts a JSON array of items", () => {
+    const recs = parseScriptureResponse([liveScriptureItem]);
+    expect(recs).toHaveLength(1);
+    expect(recs[0]!.text_id).toBe("amazing_grace_how_sweet_the_sound");
+  });
+
+  test("accepts an object keyed by index string (Hymnary's wrapper form)", () => {
+    const recs = parseScriptureResponse({ "0": liveScriptureItem, "1": liveScriptureItem });
+    expect(recs).toHaveLength(2);
+  });
+
+  test("drops linkless items and tolerates a non-collection body", () => {
+    const recs = parseScriptureResponse([liveScriptureItem, { title: "no link" }]);
+    expect(recs).toHaveLength(1);
+    expect(parseScriptureResponse(null)).toEqual([]);
+  });
+});
+
 describe("HymnaryConnector", () => {
   test("normalize() delegates to the pure mapper with the connector's nowYear", () => {
     const c = new HymnaryConnector({ nowYear: NOW });
@@ -161,30 +264,60 @@ describe("HymnaryConnector", () => {
     expect(c.normalize(amazingGrace).copyright_status).toBe("public_domain");
   });
 
+  test("ships a non-empty default discovery reference list", () => {
+    expect(DEFAULT_DISCOVERY_REFERENCES.length).toBeGreaterThan(0);
+  });
+
   // NETWORK-UNVERIFIED paths (discover/fetch) are exercised with an injected
   // fetch so the wiring is covered without any real outbound network.
-  test("discover() pages via injected fetch", async () => {
-    const fetchImpl = (async () =>
-      new Response(JSON.stringify({ texts: [{ text_id: "a" }, { text_id: "b" }], has_more: true }), {
-        status: 200,
-      })) as unknown as typeof fetch;
-    const c = new HymnaryConnector({ fetchImpl });
-    const page = await c.discover();
-    expect(page.externalIds).toEqual(["a", "b"]);
-    expect(page.nextCursor).toBe("2");
+  test("discover() queries /api/scripture by reference and pages through the list", async () => {
+    const calls: string[] = [];
+    const fetchImpl = (async (url: string) => {
+      calls.push(url);
+      return new Response(JSON.stringify([liveScriptureItem]), { status: 200 });
+    }) as unknown as typeof fetch;
+    const c = new HymnaryConnector({ fetchImpl, references: ["Psalm 23", "John 3:16"] });
+
+    const first = await c.discover();
+    expect(calls[0]).toContain("/api/scripture?reference=Psalm%2023");
+    expect(first.externalIds).toEqual(["amazing_grace_how_sweet_the_sound"]);
+    expect(first.nextCursor).toBe("1");
+
+    const second = await c.discover(first.nextCursor);
+    expect(calls[1]).toContain("reference=John%203%3A16");
+    expect(second.nextCursor).toBeUndefined(); // last reference ⇒ done
   });
 
-  test("fetch() returns the raw record via injected fetch", async () => {
-    const fetchImpl = (async () =>
-      new Response(JSON.stringify(amazingGrace), { status: 200 })) as unknown as typeof fetch;
-    const c = new HymnaryConnector({ fetchImpl });
+  test("discover() past the last reference yields an empty terminal page", async () => {
+    const fetchImpl = (async () => new Response("[]", { status: 200 })) as unknown as typeof fetch;
+    const c = new HymnaryConnector({ fetchImpl, references: ["Psalm 23"] });
+    const page = await c.discover("5");
+    expect(page.externalIds).toEqual([]);
+    expect(page.nextCursor).toBeUndefined();
+  });
+
+  test("fetch() serves a record harvested during discover() (no extra HTTP)", async () => {
+    let httpCalls = 0;
+    const fetchImpl = (async () => {
+      httpCalls++;
+      return new Response(JSON.stringify([liveScriptureItem]), { status: 200 });
+    }) as unknown as typeof fetch;
+    const c = new HymnaryConnector({ fetchImpl, references: ["Psalm 23"] });
+    await c.discover();
     const raw = await c.fetch("amazing_grace_how_sweet_the_sound");
     expect(raw.title).toBe("Amazing Grace! how sweet the sound");
+    expect(httpCalls).toBe(1); // only discover hit the network
   });
 
-  test("fetch() throws a status-tagged error on HTTP failure", async () => {
-    const fetchImpl = (async () => new Response("nope", { status: 404 })) as unknown as typeof fetch;
-    const c = new HymnaryConnector({ fetchImpl });
-    await expect(c.fetch("missing")).rejects.toThrow("hymnary fetch 404");
+  test("fetch() of an unseen id is a status-404 (permanent) error", async () => {
+    const fetchImpl = (async () => new Response("[]", { status: 200 })) as unknown as typeof fetch;
+    const c = new HymnaryConnector({ fetchImpl, references: [] });
+    await expect(c.fetch("never_discovered")).rejects.toThrow("not in discover cache");
+  });
+
+  test("discover() throws a status-tagged error on HTTP failure", async () => {
+    const fetchImpl = (async () => new Response("nope", { status: 503 })) as unknown as typeof fetch;
+    const c = new HymnaryConnector({ fetchImpl, references: ["Psalm 23"] });
+    await expect(c.discover()).rejects.toThrow("hymnary discover 503");
   });
 });
