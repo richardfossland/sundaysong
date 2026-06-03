@@ -28,6 +28,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
             <a href="/#transpose">Transpose</a>
             <a href="/#licensing">Licensing</a>
             <a href="/sources">Sources</a>
+            <a href="/upload">Contribute</a>
             <a href="/about">About</a>
           </nav>
         </header>

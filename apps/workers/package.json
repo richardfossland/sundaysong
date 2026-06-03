@@ -9,7 +9,7 @@
     "embed":     "bun run src/embed-songs.ts",
     "typecheck": "tsc --noEmit",
     "lint":      "echo lint placeholder",
-    "test":      "echo no tests yet"
+    "test":      "bun test"
   },
   "dependencies": {
     "@sundaysong/ai": "workspace:*",

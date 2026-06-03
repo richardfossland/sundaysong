@@ -11,7 +11,7 @@
 import { runSync, type NormalizedSong } from "@sundaysong/connectors";
 import { getSql, upsertSongWithVariant } from "@sundaysong/db";
 import { jsonLogger } from "./logger";
-import { getConnector } from "./registry";
+import { getConnector, getRunOptions } from "./registry";
 
 async function main(): Promise<void> {
   const name = process.argv[2] ?? "test";
@@ -47,7 +47,11 @@ async function main(): Promise<void> {
 
   let exitCode = 0;
   try {
-    const { run, deadLetter } = await runSync(connector, { upsert, logger: jsonLogger });
+    const { run, deadLetter } = await runSync(
+      connector,
+      { upsert, logger: jsonLogger },
+      getRunOptions(name),
+    );
     jsonLogger.info("sync_summary", {
       source: run.source,
       status: run.status,
