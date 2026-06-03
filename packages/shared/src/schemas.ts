@@ -20,15 +20,93 @@ export const SemanticSearchSchema = z.object({
   }).optional(),
 });
 
-export const UsageLogInputSchema = z.object({
+/**
+ * Current Sunday wire-contract version (mirrors `@sunday/contracts` SCHEMA_VERSION).
+ * Every cross-app payload carries this in a `schema_version` field. Consumers
+ * must ignore unknown fields (forward-compatible).
+ */
+export const SCHEMA_VERSION = 1 as const;
+
+/** A `schema_version` field that defaults to the current version when omitted. */
+const schemaVersionField = z.literal(SCHEMA_VERSION).default(SCHEMA_VERSION);
+
+/**
+ * Canonical cross-app usage event — the source of truth for CCLI + TONO
+ * reporting. Emitted by SundayStage (or Plan) when a song is displayed during a
+ * service and recorded by SundaySong's `/v1/usage/log` (deduped on
+ * `idempotency_key`). `was_streamed` is the critical bit: streamed performances
+ * feed a different royalty pool than in-room ones.
+ *
+ * This is the `@sunday/contracts` `UsageEvent` shape, vendored here until the
+ * platform package is published. Once it ships, this block becomes a re-export
+ * (`export { UsageEvent, buildUsageEvent, makeUsageIdempotencyKey, SCHEMA_VERSION } from "@sunday/contracts"`)
+ * with no change to consumers. The Rust crate `sunday-contracts` mirrors the
+ * same shape; `fixtures/usage_event.json` in sunday-platform is the round-trip
+ * source of truth both languages conform to.
+ */
+export const UsageEvent = z.object({
+  schema_version: schemaVersionField,
   church_id: z.string().uuid(),
   song_id: z.string().uuid(),
-  variant_id: z.string().uuid().optional().nullable(),
+  variant_id: z.string().uuid().nullable(),
+  /** ISO calendar date YYYY-MM-DD. */
   service_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  duration_displayed_sec: z.number().int().min(0).optional().nullable(),
-  was_streamed: z.boolean().default(false),
+  duration_displayed_sec: z.number().int().min(0).nullable(),
+  was_streamed: z.boolean(),
   idempotency_key: z.string().min(8).max(120),
 });
+export type UsageEvent = z.infer<typeof UsageEvent>;
+
+/**
+ * Build a deterministic idempotency key for a usage event so a re-sent event
+ * (network retry, app restart) never double-counts. Stable for a given service
+ * item. Mirrors `@sunday/contracts` `makeUsageIdempotencyKey`.
+ */
+export function makeUsageIdempotencyKey(serviceId: string, serviceItemId: string): string {
+  return `svc-${serviceId}:item-${serviceItemId}`;
+}
+
+/** Inputs for {@link buildUsageEvent} — the Stage→Song usage bridge. */
+export interface BuildUsageEventInput {
+  churchId: string;
+  songId: string;
+  variantId?: string | null;
+  /** ISO calendar date YYYY-MM-DD. */
+  serviceDate: string;
+  wasStreamed: boolean;
+  durationDisplayedSec?: number | null;
+  /** The service this song was shown in — feeds the idempotency key. */
+  serviceId: string;
+  /** The running-order item — feeds the idempotency key. */
+  serviceItemId: string;
+}
+
+/**
+ * Build a validated {@link UsageEvent} from a service item, deriving the dedupe
+ * key with {@link makeUsageIdempotencyKey} so a retried emit never
+ * double-counts. The canonical way SundayStage/Plan report a played song to
+ * SundaySong's `/v1/usage/log`. Mirrors `@sunday/contracts` `buildUsageEvent`.
+ */
+export function buildUsageEvent(input: BuildUsageEventInput): UsageEvent {
+  return UsageEvent.parse({
+    schema_version: SCHEMA_VERSION,
+    church_id: input.churchId,
+    song_id: input.songId,
+    variant_id: input.variantId ?? null,
+    service_date: input.serviceDate,
+    duration_displayed_sec: input.durationDisplayedSec ?? null,
+    was_streamed: input.wasStreamed,
+    idempotency_key: makeUsageIdempotencyKey(input.serviceId, input.serviceItemId),
+  });
+}
+
+/**
+ * Back-compat alias for the canonical {@link UsageEvent}. The `/v1/usage/log`
+ * route validates against this. Kept so the `@sundaysong/db` `logUsage` input
+ * shape (which has no `schema_version` column) keeps compiling; new emitters
+ * should build events with {@link buildUsageEvent}.
+ */
+export const UsageLogInputSchema = UsageEvent;
 
 export const RecommendInputSchema = z.object({
   theme: z.string().optional(),
