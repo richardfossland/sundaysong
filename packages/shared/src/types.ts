@@ -118,8 +118,6 @@ export interface RecommendInput {
   /** Energy/mood arc */
   arc?: "rising" | "reflective" | "celebration" | "lament";
   duration_min?: number;
-  /** Limit recommendations to a church's library. */
-  scope_to_church_id?: string;
   /** Force language */
   language?: string;
 }

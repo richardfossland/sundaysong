@@ -117,7 +117,6 @@ export const RecommendInputSchema = z.object({
   after_song_id: z.string().uuid().optional(),
   arc: z.enum(["rising", "reflective", "celebration", "lament"]).optional(),
   duration_min: z.number().int().min(1).max(180).optional(),
-  scope_to_church_id: z.string().uuid().optional(),
   language: z.string().optional(),
 });
 

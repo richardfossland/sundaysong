@@ -28,6 +28,11 @@ export default function RecommendationsPage() {
         Suggestions are grounded in the real catalog. Sunday Pro adds AI re-ranking on top of the
         music-theory key-flow and energy-arc sequencing.
       </p>
+
+      <p className="muted" style={{ fontSize: "0.85rem", marginTop: 8 }}>
+        More ways to plan: <a href="/recommendations/after">what flows next</a> from a song, or songs
+        for <a href="/recommendations/season">a liturgical season</a>.
+      </p>
     </section>
   );
 }
