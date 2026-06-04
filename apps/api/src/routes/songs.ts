@@ -7,7 +7,7 @@ import { SongSearchQuerySchema, SemanticSearchSchema, SongUploadInputSchema } fr
 /** The validated body of `POST /v1/songs`, inferred from the shared schema. */
 type SongUploadInput = z.infer<typeof SongUploadInputSchema>;
 import type { Song, SongVariant } from "@sundaysong/shared";
-import { getSql, getSong, getSongsByIds, listVariantsForSong, lyricistsForSong, searchSongsByTitle, translationsForSong, translationsForSongs, nearestSongs, upsertSongWithVariant } from "@sundaysong/db";
+import { getSql, getSong, getSongsByIds, listVariantsForSong, lyricistsForSong, searchSongsByTitle, countSongsByTitle, translationsForSong, translationsForSongs, nearestSongs, upsertSongWithVariant } from "@sundaysong/db";
 import { MeiliClient, SONG_INDEX, songToSearchDoc, rankDocs } from "@sundaysong/search";
 import { getEmbedder } from "@sundaysong/ai";
 
@@ -120,6 +120,13 @@ export interface SongSearchStore {
    * route re-ranks the returned candidates with the Nordic-aware scorer.
    */
   fallbackSearch(q: string, limit: number, offset?: number): Promise<SongWithRelations[]>;
+  /**
+   * The count of candidate matches behind `fallbackSearch` — the whole ILIKE
+   * population the page window draws from, independent of page/limit. The route
+   * reports this as the fallback `total` so it is page-stable and agrees with
+   * the Meili branch's `estimatedTotalHits` (rather than the per-page hit count).
+   */
+  fallbackCount(q: string): Promise<number>;
 }
 
 /**
@@ -152,6 +159,10 @@ export function postgresSearchStore(): SongSearchStore {
     async fallbackSearch(q, limit, offset = 0) {
       const sql = getSql();
       return hydrate(await searchSongsByTitle(sql, q, limit, offset));
+    },
+    async fallbackCount(q) {
+      const sql = getSql();
+      return countSongsByTitle(sql, q);
     },
   };
 }
@@ -212,7 +223,10 @@ routes.get("/search", zValidator("query", SongSearchQuerySchema), async (c) => {
     // re-rank the candidates with the Nordic-aware scorer so the offline path
     // still orders by real title relevance (folding å/ø/æ etc.) and emits
     // genuine 0..1 scores instead of a flat trigram order with score:1.
-    const candidates = await searchStore.fallbackSearch(q.q, q.page_size, q.page * q.page_size);
+    const [candidates, total] = await Promise.all([
+      searchStore.fallbackSearch(q.q, q.page_size, q.page * q.page_size),
+      searchStore.fallbackCount(q.q),
+    ]);
     const byId = new Map(candidates.map((h) => [h.song.id, h]));
     const docs = candidates.map((h) => songToSearchDoc(h.song, h.variants));
     const ranked = rankDocs(q.q, docs);
@@ -222,7 +236,12 @@ routes.get("/search", zValidator("query", SongSearchQuerySchema), async (c) => {
         return found ? { ...found, match_reason: "text" as const, score: r.score } : null;
       })
       .filter((h): h is SongWithRelations & { match_reason: "text"; score: number } => h != null);
-    return c.json({ hits, total: hits.length, page: q.page, page_size: q.page_size, engine: "postgres_fallback" });
+    // `total` is the candidate-match count (the ILIKE population the page window
+    // draws from), so it is page-stable and agrees with the Meili branch's
+    // estimatedTotalHits — not the per-page rendered-hit count. A paging client
+    // can derive the page count from it. The Nordic-aware re-ranker may drop a
+    // few substring-only hits, so it is a slight superset of `hits.length`.
+    return c.json({ hits, total, page: q.page, page_size: q.page_size, engine: "postgres_fallback" });
   }
 });
 

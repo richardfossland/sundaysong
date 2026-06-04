@@ -243,6 +243,11 @@ function fakeSearchStore(catalog: Song[]): SongSearchStore {
     async fallbackSearch(_q, limit) {
       return catalog.slice(0, limit).map(hydrate);
     },
+    // The candidate-match count (the ILIKE population the page window draws
+    // from); the fixture catalog is exactly that population.
+    async fallbackCount(_q) {
+      return catalog.length;
+    },
   };
 }
 
@@ -291,7 +296,10 @@ describe("GET /v1/songs/search — offline Postgres fallback re-ranking", () => 
     expect(json.hits[0]!.score).toBeGreaterThan(json.hits[1]!.score);
     expect(json.hits[0]!.score).toBeLessThanOrEqual(1);
     expect(json.hits.every((h) => h.score < 1)).toBe(true); // never the old hardcoded score:1
-    expect(json.total).toBe(2);
+    // `total` is the candidate-match count (the ILIKE population the page window
+    // draws from), NOT the count of rendered hits. Here the fixture's whole
+    // 3-song catalog is the candidate set, even though only 2 survive ranking.
+    expect(json.total).toBe(3);
   });
 
   // ── Pagination of the offline fallback (regression) ────────────────────────
@@ -320,6 +328,10 @@ describe("GET /v1/songs/search — offline Postgres fallback re-ranking", () => 
         store.lastOffset = offset;
         return catalog.slice(offset, offset + limit).map(hydrate);
       },
+      // The full match count over the whole catalog — page-independent.
+      async fallbackCount(_q: string) {
+        return catalog.length;
+      },
     };
     return store;
   }
@@ -346,6 +358,30 @@ describe("GET /v1/songs/search — offline Postgres fallback re-ranking", () => 
     expect(ids0.some((id) => ids1.includes(id))).toBe(false);
     // The store actually received the page-1 offset.
     expect(store.lastOffset).toBe(10);
+  });
+
+  test("reports the full match total on every page, not the per-page count", async () => {
+    // 25 matching songs, page_size 10. The Meili branch reports the true match
+    // count (estimatedTotalHits) on every page; the offline fallback must agree.
+    // The bug: `total: hits.length` reports the post-window, post-rank count, so
+    // page 0 → 10, the last partial page → 5, and a paging client can never
+    // derive the page count from a fallback response.
+    const catalog = Array.from({ length: 25 }, (_, i) =>
+      fakeSong(`g${i}`, `Grace Song ${String(i).padStart(2, "0")}`, 25 - i),
+    );
+    const store = paginatingSearchStore(catalog);
+    const routes = createSongsRoutes({ searchStore: store });
+
+    const p0 = (await (await routes.request("/search?q=grace&page=0&page_size=10")).json()) as SearchResponse;
+    const p1 = (await (await routes.request("/search?q=grace&page=1&page_size=10")).json()) as SearchResponse;
+    const p2 = (await (await routes.request("/search?q=grace&page=2&page_size=10")).json()) as SearchResponse;
+
+    // Every page reports the same, full candidate total — stable for paging.
+    expect(p0.total).toBe(25);
+    expect(p1.total).toBe(25);
+    expect(p2.total).toBe(25);
+    // The last page still returns only its 5 rows, but `total` is unchanged.
+    expect(p2.hits).toHaveLength(5);
   });
 
   test("folds Nordic letters so an ASCII-typed query matches å/ø titles (Lovsang ↔ Lovsång)", async () => {
