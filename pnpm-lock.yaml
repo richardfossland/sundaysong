@@ -94,6 +94,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@sundaysong/music':
+        specifier: workspace:*
+        version: link:../../packages/music
       '@sundaysong/sdk':
         specifier: workspace:*
         version: link:../../packages/sdk

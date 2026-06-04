@@ -403,6 +403,45 @@ input[type="text"]:focus, textarea:focus, select:focus {
 }
 .year-tag { border-style: dashed; color: var(--ink-faint); }
 
+.music-tag {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.04em;
+  padding: 3px 8px;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  color: var(--ember-deep);
+  background: var(--paper);
+}
+
+/* ── Search filter controls (BPM / key / theme / language) ────────────────── */
+
+.filter-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 16px;
+  margin-top: 16px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  background: var(--paper);
+}
+.filter-field { display: flex; flex-direction: column; gap: 5px; }
+.filter-field label {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+.filter-field input,
+.filter-field select { padding: 8px 10px; border: 1px solid var(--line); background: var(--bg, #fff); font-size: 0.92rem; }
+.filter-bpm-range { display: flex; align-items: center; gap: 8px; }
+.filter-bpm-range input { width: 72px; }
+.filter-bpm-range span { color: var(--ink-faint); }
+.filter-actions { display: flex; align-items: center; gap: 14px; margin-left: auto; }
+.btn-sm { padding: 8px 16px; font-size: 0.85rem; }
+
 /* ── Search facets sidebar ────────────────────────────────────────────────── */
 
 .search-layout { display: grid; grid-template-columns: 220px 1fr; gap: 32px; align-items: start; margin-top: 18px; }
