@@ -21,6 +21,7 @@ export {
 } from "./repositories/sources";
 export {
   type SongInput,
+  type SongVariantFilter,
   insertSong,
   updateSong,
   getSong,
