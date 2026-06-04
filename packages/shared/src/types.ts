@@ -204,6 +204,67 @@ export interface RecommendAfterOutput {
   key_flow: boolean;
 }
 
+// ── Recommend-set (use case E: "build me a whole service") ──────────────────
+
+/** Energy arc shapes the set composer can trace. */
+export type SetArc = "rising" | "reflective" | "celebration" | "lament" | "peak";
+
+export interface ComposeConstraints {
+  /** Maximum BPM jump between consecutive songs (hard-penalised when exceeded). */
+  max_bpm_jump?: number;
+  /** Target fraction of the set in a major key, 0..1. */
+  major_ratio?: number;
+}
+
+export interface RecommendSetInput {
+  theme?: string;
+  scripture?: string;
+  description?: string;
+  language?: string;
+  arc?: SetArc;
+  /** Target number of songs (takes precedence over duration). */
+  target_size?: number;
+  /** Target total running time in minutes. */
+  target_duration_min?: number;
+  constraints?: ComposeConstraints;
+}
+
+/** One song placed in the composed service, with its full reasoning. */
+export interface RecommendSetSlot {
+  position: number;
+  song: Song;
+  /** Combined objective contribution of placing this song here. */
+  score: number;
+  reason: string;
+  suggested_key: string | null;
+  bpm: number | null;
+  /** Estimated 0..1 energy of this song. */
+  energy: number;
+  /** Target arc energy for this slot (−1 when no arc was requested). */
+  target_energy: number;
+  /** Whether this slot breaks the BPM-jump cap. */
+  tempo_violation: boolean;
+}
+
+export interface RecommendSetOutput {
+  slots: RecommendSetSlot[];
+  total_minutes_estimate: number;
+  /** Fraction of the placed set in a major key (null when no keys are known). */
+  major_ratio: number | null;
+  /** The energy / key / tempo path through the set. */
+  trajectory: {
+    energy: number[];
+    target_energy: number[];
+    keys: (string | null)[];
+    bpm: (number | null)[];
+  };
+  /** Number of consecutive pairs that exceed the BPM cap. */
+  tempo_violations: number;
+  summary: string;
+  /** The arc the set was sequenced along, echoed back (undefined when none). */
+  arc?: SetArc;
+}
+
 // ── AI translation draft (Phase 4.2, Sunday Pro) ────────────────────────────
 
 export interface TranslateInput {

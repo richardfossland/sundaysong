@@ -22,6 +22,8 @@ import type {
   RecommendAfterOutput,
   RecommendSeasonInput,
   RecommendSeasonOutput,
+  RecommendSetInput,
+  RecommendSetOutput,
   LiturgicalSeason,
   LicensingReport,
   TranslateInput,
@@ -151,6 +153,19 @@ export class SundaySong {
        */
       season: (input: RecommendSeasonInput): Promise<RecommendSeasonOutput> =>
         this.request("/v1/recommend/season", {
+          method: "POST",
+          body: JSON.stringify(input),
+        }),
+      /**
+       * Use case E — "build me a whole service, not just find a song".
+       * Composes a single ORDERED set from a theme/scripture seed, a target
+       * size or duration, an energy arc and the musical constraints (tempo-jump
+       * cap, key-flow continuity, major/minor balance). Returns per-slot
+       * rationale and the set's energy / key / tempo trajectory. Deterministic;
+       * the orchestration is offline music-theory, no AI key required.
+       */
+      compose: (input: RecommendSetInput): Promise<RecommendSetOutput> =>
+        this.request("/v1/recommend/set", {
           method: "POST",
           body: JSON.stringify(input),
         }),
@@ -392,4 +407,4 @@ export interface UsageLogPayload {
   idempotency_key: string;
 }
 
-export type { Song, SongVariant, SearchHit, RecommendInput, RecommendOutput, RecommendAfterInput, RecommendAfterOutput, RecommendSeasonInput, RecommendSeasonOutput, LiturgicalSeason, LicensingReport, SongSection, NordicMetadata, TranslateInput, TranslationDraftResult };
+export type { Song, SongVariant, SearchHit, RecommendInput, RecommendOutput, RecommendAfterInput, RecommendAfterOutput, RecommendSeasonInput, RecommendSeasonOutput, RecommendSetInput, RecommendSetOutput, LiturgicalSeason, LicensingReport, SongSection, NordicMetadata, TranslateInput, TranslationDraftResult };
