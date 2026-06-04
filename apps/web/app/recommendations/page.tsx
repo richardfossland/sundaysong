@@ -30,8 +30,10 @@ export default function RecommendationsPage() {
       </p>
 
       <p className="muted" style={{ fontSize: "0.85rem", marginTop: 8 }}>
-        More ways to plan: <a href="/recommendations/after">what flows next</a> from a song, or songs
-        for <a href="/recommendations/season">a liturgical season</a>.
+        Want a whole service in one go? <a href="/recommendations/set">Build a service</a> — an
+        ordered set with key-flow, tempo and mode-balance constraints. Or find{" "}
+        <a href="/recommendations/after">what flows next</a> from a song, or songs for{" "}
+        <a href="/recommendations/season">a liturgical season</a>.
       </p>
     </section>
   );
