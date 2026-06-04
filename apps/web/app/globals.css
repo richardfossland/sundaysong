@@ -403,6 +403,60 @@ input[type="text"]:focus, textarea:focus, select:focus {
 }
 .year-tag { border-style: dashed; color: var(--ink-faint); }
 
+/* ── Search facets sidebar ────────────────────────────────────────────────── */
+
+.search-layout { display: grid; grid-template-columns: 220px 1fr; gap: 32px; align-items: start; margin-top: 18px; }
+.search-results { min-width: 0; }
+
+.facets { position: sticky; top: 24px; border-right: 1px solid var(--line); padding-right: 24px; }
+.facets-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 18px; }
+.facets-title {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+.facet-clear { font-family: var(--font-mono); font-size: 0.72rem; color: var(--ember-deep); text-decoration: underline; }
+.facet-clear:hover { color: var(--ember); }
+
+.facet-group { margin-bottom: 22px; }
+.facet-group-title {
+  font-family: var(--font-body);
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--ink-soft);
+  margin: 0 0 8px;
+}
+.facet-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.facet-chip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 6px 9px;
+  font-size: 0.88rem;
+  color: var(--ink-soft);
+  border: 1px solid transparent;
+  transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+}
+.facet-chip:hover { background: var(--paper-2); color: var(--ink); }
+.facet-chip[aria-pressed="true"] { background: var(--pine); color: var(--paper); border-color: var(--pine); }
+.facet-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.facet-count {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--ink-faint);
+  flex-shrink: 0;
+}
+.facet-chip:hover .facet-count { color: var(--ink-soft); }
+.facet-chip[aria-pressed="true"] .facet-count { color: var(--paper); }
+
+@media (max-width: 720px) {
+  .search-layout { grid-template-columns: 1fr; }
+  .facets { position: static; border-right: 0; border-bottom: 1px solid var(--line); padding-right: 0; padding-bottom: 16px; }
+}
+
 /* ── Sources page ─────────────────────────────────────────────────────────── */
 
 .source-list { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
