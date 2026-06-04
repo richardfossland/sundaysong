@@ -8,6 +8,14 @@ import {
   type FacetGroup,
   type FacetSelection,
 } from "@/lib/searchFacets";
+import {
+  activeFilterCount,
+  buildSearchQuery,
+  filtersFromQuery,
+  filtersToParams,
+  KEY_OPTIONS,
+  type SearchFilterState,
+} from "@/lib/searchFilters";
 
 // The API is only reachable at request time (local in dev, Fly in prod), so we
 // never want Next to try to render this at build — keep it dynamic.
@@ -31,13 +39,16 @@ type Result =
       semantic: boolean;
     };
 
-async function runSearch(q: string, mode: Mode): Promise<Result> {
+async function runSearch(q: string, mode: Mode, filters: SearchFilterState): Promise<Result> {
   try {
     if (mode === "meaning") {
-      const res = await api.songs.semanticSearch({ query: q });
+      // Semantic search only honours language server-side; the other musical
+      // filters narrow text/Postgres search, so they don't apply here.
+      const language = filtersToParams(filters).language;
+      const res = await api.songs.semanticSearch({ query: q, ...(language ? { language } : {}) });
       return { kind: "ok", hits: res.hits, total: res.hits.length, semantic: true };
     }
-    const res = await api.songs.search({ q });
+    const res = await api.songs.search({ q, ...filtersToParams(filters) });
     return { kind: "ok", hits: res.hits, total: res.total, engine: res.engine, semantic: false };
   } catch (e) {
     return {
@@ -50,12 +61,28 @@ async function runSearch(q: string, mode: Mode): Promise<Result> {
 export default async function SongsSearchPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; mode?: string; theme?: string; lang?: string; copyright?: string }>;
+  searchParams: Promise<{
+    q?: string;
+    mode?: string;
+    theme?: string;
+    lang?: string;
+    copyright?: string;
+    bpm_min?: string;
+    bpm_max?: string;
+    key?: string;
+  }>;
 }) {
-  const { q, mode: modeParam, theme, lang, copyright } = await searchParams;
+  const sp = await searchParams;
+  const { q, mode: modeParam, theme, lang, copyright } = sp;
   const query = (q ?? "").trim();
   const mode: Mode = modeParam === "meaning" ? "meaning" : "text";
-  const result = query ? await runSearch(query, mode) : ({ kind: "idle" } as Result);
+
+  // Musical filter state from the URL (shared param names with the facet
+  // sidebar: `lang`/`theme`). These pass through to the API call AND seed the
+  // controls so the page is fully shareable/back-button-able.
+  const filters = filtersFromQuery(sp);
+
+  const result = query ? await runSearch(query, mode, filters) : ({ kind: "idle" } as Result);
 
   // Active facet selection from the URL — applied client-side to the fetched
   // page of results (no API change), and used to mark the active chips.
@@ -91,9 +118,12 @@ export default async function SongsSearchPage({
         </select>
         <button className="btn" type="submit">Search</button>
       </form>
+
+      <FilterControls filters={filters} mode={mode} query={query} />
+
       <p className="muted" style={{ fontSize: "0.85rem", marginTop: 8 }}>
         {mode === "meaning"
-          ? "Semantic search — describe what the song is about, in any words."
+          ? "Semantic search — describe what the song is about, in any words. Only the language filter applies."
           : "Typo-tolerant text search across titles and variants."}
       </p>
 
@@ -108,7 +138,7 @@ export default async function SongsSearchPage({
       )}
 
       {result.kind === "ok" && (
-        <Results result={result} query={query} mode={mode} selection={selection} />
+        <Results result={result} query={query} mode={mode} selection={selection} filters={filters} />
       )}
     </section>
   );
@@ -119,11 +149,13 @@ function Results({
   query,
   mode,
   selection,
+  filters,
 }: {
   result: Extract<Result, { kind: "ok" }>;
   query: string;
   mode: Mode;
   selection: FacetSelection;
+  filters: SearchFilterState;
 }) {
   // Facet counts are computed over the whole fetched page; the visible list is
   // the page narrowed by the active selection. Pagination/total are untouched —
@@ -166,6 +198,7 @@ function Results({
             query={query}
             mode={mode}
             activeCount={activeCount}
+            filters={filters}
           />
           <div className="search-results">
             {visible.length === 0 ? (
@@ -188,13 +221,24 @@ function Results({
 
 /**
  * Build the /songs URL for a given facet selection, always carrying the query
- * and mode so the server re-renders the same search with the new filters.
+ * and mode so the server re-renders the same search with the new filters. The
+ * musical filters (bpm/key, and any language/theme the controls set) are
+ * preserved via `buildSearchQuery`; the facet selection's own lang/theme take
+ * precedence (a clicked facet chip is the user's explicit choice), and the
+ * copyright facet — which is a client-side narrowing, not an API param — is
+ * appended on top.
  */
-function facetHref(query: string, mode: Mode, selection: FacetSelection): string {
-  const params = new URLSearchParams({ q: query });
-  if (mode === "meaning") params.set("mode", "meaning");
-  if (selection.language) params.set("lang", selection.language);
-  if (selection.theme) params.set("theme", selection.theme);
+function facetHref(query: string, mode: Mode, selection: FacetSelection, filters: SearchFilterState): string {
+  const merged: SearchFilterState = {
+    ...filters,
+    // A facet chip overrides the corresponding control value; clearing the chip
+    // (selection.* undefined) falls back to the control's value so the two stay
+    // consistent rather than fighting each other.
+    language: selection.language ?? filters.language,
+    theme: selection.theme ?? filters.theme,
+  };
+  const qs = buildSearchQuery({ q: query, mode, filters: merged });
+  const params = new URLSearchParams(qs);
   if (selection.copyright) params.set("copyright", selection.copyright);
   return `/songs?${params.toString()}`;
 }
@@ -205,19 +249,21 @@ function FacetSidebar({
   query,
   mode,
   activeCount,
+  filters,
 }: {
   groups: FacetGroup[];
   selection: FacetSelection;
   query: string;
   mode: Mode;
   activeCount: number;
+  filters: SearchFilterState;
 }) {
   return (
     <aside className="facets" aria-label="Filter results">
       <div className="facets-head">
         <span className="facets-title">Filter</span>
         {activeCount > 0 && (
-          <Link className="facet-clear" href={facetHref(query, mode, {})}>
+          <Link className="facet-clear" href={facetHref(query, mode, {}, filters)}>
             Clear all
           </Link>
         )}
@@ -240,7 +286,7 @@ function FacetSidebar({
                   <li key={bucket.value}>
                     <Link
                       className="facet-chip"
-                      href={facetHref(query, mode, next)}
+                      href={facetHref(query, mode, next, filters)}
                       aria-pressed={isActive}
                     >
                       <span className="facet-label">{bucket.label}</span>
@@ -262,6 +308,12 @@ function SongRow({ hit }: { hit: SearchHit }) {
   const langs = Array.from(new Set([song.original_language, ...variants.map((v) => v.language)]));
   const status = copyrightView(song.copyright_status);
 
+  // Surface the variant-level musical facts the filters search on: the distinct
+  // keys, and the bpm range across the song's variants (de-duped, compact).
+  const keys = Array.from(new Set(variants.map((v) => v.key).filter((k): k is string => !!k)));
+  const bpms = variants.map((v) => v.bpm).filter((b): b is number => b != null);
+  const bpmLabel = bpmRangeLabel(bpms);
+
   return (
     <li className="result-row">
       <Link href={`/songs/${encodeURIComponent(song.id)}`} className="result-link">
@@ -272,6 +324,14 @@ function SongRow({ hit }: { hit: SearchHit }) {
               <span key={l} className="lang-tag">{l.toUpperCase()}</span>
             ))}
             {song.year_first_published && <span className="year-tag">{song.year_first_published}</span>}
+            {keys.length > 0 && (
+              <span className="music-tag" title="Variant key(s)">
+                {keys.length === 1 ? `Key ${keys[0]}` : `Keys ${keys.join(", ")}`}
+              </span>
+            )}
+            {bpmLabel && (
+              <span className="music-tag" title="Tempo across variants">{bpmLabel}</span>
+            )}
             <span className={`pill ${status.cls}`} style={{ padding: "3px 9px", fontSize: "0.72rem" }}>
               <span className="dot" /> {status.label}
             </span>
@@ -282,6 +342,106 @@ function SongRow({ hit }: { hit: SearchHit }) {
         )}
       </Link>
     </li>
+  );
+}
+
+/** Compact bpm label: a single value, or a "lo–hi bpm" range. Empty => "". */
+function bpmRangeLabel(bpms: number[]): string {
+  if (bpms.length === 0) return "";
+  const lo = Math.min(...bpms);
+  const hi = Math.max(...bpms);
+  return lo === hi ? `${lo} bpm` : `${lo}–${hi} bpm`;
+}
+
+/**
+ * The musical filter controls — a second GET form posting back to `/songs`,
+ * carrying the current query + mode as hidden fields so submitting the filters
+ * re-runs the same search. Server-rendered; the browser handles submission, so
+ * no client JS is needed and the result is fully shareable via the URL.
+ */
+function FilterControls({
+  filters,
+  mode,
+  query,
+}: {
+  filters: SearchFilterState;
+  mode: Mode;
+  query: string;
+}) {
+  const count = activeFilterCount(filters);
+  return (
+    <form action="/songs" method="get" className="filter-controls" aria-label="Filter search by music">
+      <input type="hidden" name="q" value={query} />
+      {mode === "meaning" && <input type="hidden" name="mode" value="meaning" />}
+
+      <div className="filter-field">
+        <label htmlFor="filter-lang">Language</label>
+        <input
+          id="filter-lang"
+          type="text"
+          name="lang"
+          defaultValue={filters.language}
+          placeholder="any (e.g. no, en)"
+          maxLength={8}
+        />
+      </div>
+
+      <div className="filter-field">
+        <label htmlFor="filter-theme">Theme</label>
+        <input
+          id="filter-theme"
+          type="text"
+          name="theme"
+          defaultValue={filters.theme}
+          placeholder="any (e.g. grace)"
+        />
+      </div>
+
+      <div className="filter-field">
+        <label htmlFor="filter-key">Key</label>
+        <select id="filter-key" name="key" defaultValue={filters.key}>
+          <option value="">Any key</option>
+          {KEY_OPTIONS.map((k) => (
+            <option key={k} value={k}>{k}</option>
+          ))}
+        </select>
+      </div>
+
+      <div className="filter-field filter-bpm">
+        <label htmlFor="filter-bpm-min">BPM</label>
+        <div className="filter-bpm-range">
+          <input
+            id="filter-bpm-min"
+            type="number"
+            name="bpm_min"
+            defaultValue={filters.bpmMin}
+            placeholder="min"
+            min={20}
+            max={300}
+            aria-label="Minimum BPM"
+          />
+          <span aria-hidden="true">–</span>
+          <input
+            type="number"
+            name="bpm_max"
+            defaultValue={filters.bpmMax}
+            placeholder="max"
+            min={20}
+            max={300}
+            aria-label="Maximum BPM"
+          />
+        </div>
+      </div>
+
+      <div className="filter-actions">
+        <button className="btn btn-sm" type="submit">Apply filters</button>
+        {count > 0 && (
+          <Link className="facet-clear" href={`/songs?${query ? `q=${encodeURIComponent(query)}` : ""}${mode === "meaning" ? `${query ? "&" : ""}mode=meaning` : ""}`}>
+            Clear ({count})
+          </Link>
+        )}
+      </div>
+    </form>
   );
 }
 

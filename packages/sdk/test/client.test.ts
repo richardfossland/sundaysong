@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { UsageEvent } from "@sundaysong/shared";
-import { SundaySong, SundaySongError, type RecommendSeasonOutput } from "../src/index";
+import { SundaySong, SundaySongError, type RecommendSeasonOutput, type RecommendSetOutput } from "../src/index";
 
 function mockFetch(responses: Array<{ status: number; body?: unknown; headers?: Record<string, string> }>) {
   const calls: string[] = [];
@@ -103,6 +103,67 @@ describe("recommend namespace", () => {
     expect(res).toEqual(out);
     expect(reqs[0]!.url).toBe("https://api.sundaysong.com/v1/recommend/after");
     expect(reqs[0]!.body).toEqual({ songId: "s1", limit: 5 });
+  });
+
+  test("recommend.compose POSTs the set body to /v1/recommend/set", async () => {
+    const song = {
+      id: "s1",
+      canonical_title: "Grace in C",
+      original_language: "en",
+      year_first_published: null,
+      copyright_status: "unknown" as const,
+      ccli_song_id: null,
+      tono_work_id: null,
+      tono_registered: false,
+      hymnary_id: null,
+      popularity_score: 10,
+      nordic_metadata: {},
+      themes: ["grace"],
+      bible_refs: [],
+      created_at: "",
+      updated_at: "",
+    };
+    const out: RecommendSetOutput = {
+      slots: [
+        {
+          position: 0,
+          song,
+          score: 1.2,
+          reason: "Fits the theme of grace · low-energy fits the arc here",
+          suggested_key: "C",
+          bpm: 72,
+          energy: 0.2,
+          target_energy: 0,
+          tempo_violation: false,
+        },
+      ],
+      total_minutes_estimate: 16,
+      major_ratio: 0.75,
+      trajectory: { energy: [0.2], target_energy: [0], keys: ["C"], bpm: [72] },
+      tempo_violations: 0,
+      summary: "4 songs for grace, sequenced along a rising arc, ~16 min.",
+      arc: "rising",
+    };
+    const { fetch, reqs } = recordingFetch(out);
+    const api = new SundaySong({ fetch, sleep: noSleep });
+
+    const res = await api.recommend.compose({
+      theme: "grace",
+      arc: "rising",
+      target_size: 4,
+      constraints: { max_bpm_jump: 20, major_ratio: 0.5 },
+    });
+
+    expect(res).toEqual(out);
+    expect(reqs).toHaveLength(1);
+    expect(reqs[0]!.url).toBe("https://api.sundaysong.com/v1/recommend/set");
+    expect(reqs[0]!.method).toBe("POST");
+    expect(reqs[0]!.body).toEqual({
+      theme: "grace",
+      arc: "rising",
+      target_size: 4,
+      constraints: { max_bpm_jump: 20, major_ratio: 0.5 },
+    });
   });
 
   test("recommend() base call still POSTs to /v1/recommend", async () => {

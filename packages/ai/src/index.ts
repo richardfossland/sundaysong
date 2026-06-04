@@ -51,6 +51,18 @@ export {
   applyArc,
 } from "./arc";
 export {
+  type SetCandidate,
+  type ComposeRequest,
+  type ComposeConstraints,
+  type ComposeWeights,
+  type ComposedSlot,
+  type ComposeTrajectory,
+  type ComposeResult,
+  DEFAULT_CONSTRAINTS,
+  DEFAULT_WEIGHTS,
+  composeSet,
+} from "./setComposer";
+export {
   type RerankResponse,
   RERANK_SYSTEM_PROMPT,
   buildRerankPrompt,

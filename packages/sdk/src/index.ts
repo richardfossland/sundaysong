@@ -22,6 +22,8 @@ import type {
   RecommendAfterOutput,
   RecommendSeasonInput,
   RecommendSeasonOutput,
+  RecommendSetInput,
+  RecommendSetOutput,
   LiturgicalSeason,
   LicensingReport,
   TranslateInput,
@@ -108,6 +110,12 @@ export class SundaySong {
       const u = new URLSearchParams();
       u.set("q", params.q);
       if (params.language) u.set("language", params.language);
+      // `themes` is an array on the route schema — repeat the key so the query
+      // parser (qs/zod array coercion) sees it as a list, not one CSV value.
+      if (params.themes) for (const t of params.themes) u.append("themes", t);
+      if (params.bpm_min !== undefined) u.set("bpm_min", String(params.bpm_min));
+      if (params.bpm_max !== undefined) u.set("bpm_max", String(params.bpm_max));
+      if (params.key) u.set("key", params.key);
       if (params.page !== undefined) u.set("page", String(params.page));
       if (params.page_size !== undefined) u.set("page_size", String(params.page_size));
       return this.request(`/v1/songs/search?${u.toString()}`);
@@ -151,6 +159,19 @@ export class SundaySong {
        */
       season: (input: RecommendSeasonInput): Promise<RecommendSeasonOutput> =>
         this.request("/v1/recommend/season", {
+          method: "POST",
+          body: JSON.stringify(input),
+        }),
+      /**
+       * Use case E — "build me a whole service, not just find a song".
+       * Composes a single ORDERED set from a theme/scripture seed, a target
+       * size or duration, an energy arc and the musical constraints (tempo-jump
+       * cap, key-flow continuity, major/minor balance). Returns per-slot
+       * rationale and the set's energy / key / tempo trajectory. Deterministic;
+       * the orchestration is offline music-theory, no AI key required.
+       */
+      compose: (input: RecommendSetInput): Promise<RecommendSetOutput> =>
+        this.request("/v1/recommend/set", {
           method: "POST",
           body: JSON.stringify(input),
         }),
@@ -319,6 +340,14 @@ export interface CandidateScoreResult {
 export interface SearchParams {
   q: string;
   language?: string;
+  /** Variant-level theme filters (AND'd, max 8) — matched on the song's themes. */
+  themes?: string[];
+  /** Variant-level tempo floor (bpm), filtered inside the SQL window. */
+  bpm_min?: number;
+  /** Variant-level tempo ceiling (bpm), filtered inside the SQL window. */
+  bpm_max?: number;
+  /** Variant-level key filter, e.g. "C", "Am", "Bb". */
+  key?: string;
   page?: number;
   page_size?: number;
 }
@@ -392,4 +421,4 @@ export interface UsageLogPayload {
   idempotency_key: string;
 }
 
-export type { Song, SongVariant, SearchHit, RecommendInput, RecommendOutput, RecommendAfterInput, RecommendAfterOutput, RecommendSeasonInput, RecommendSeasonOutput, LiturgicalSeason, LicensingReport, SongSection, NordicMetadata, TranslateInput, TranslationDraftResult };
+export type { Song, SongVariant, SearchHit, RecommendInput, RecommendOutput, RecommendAfterInput, RecommendAfterOutput, RecommendSeasonInput, RecommendSeasonOutput, RecommendSetInput, RecommendSetOutput, LiturgicalSeason, LicensingReport, SongSection, NordicMetadata, TranslateInput, TranslationDraftResult };

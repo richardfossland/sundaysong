@@ -210,6 +210,60 @@ export const RecommendAfterRouteSchema = RecommendAfterInputSchema.extend({
     .optional(),
 });
 
+// ── Recommend-set (use case E: "build me a whole service") ──────────────────
+
+/** Energy arc shapes the set composer can trace (mirrors @sundaysong/ai ArcShape). */
+export const SetArcSchema = z.enum(["rising", "reflective", "celebration", "lament", "peak"]);
+
+/** Constraints the set composer honours while sequencing. */
+export const ComposeConstraintsSchema = z.object({
+  /** Maximum BPM jump between consecutive songs (hard-penalised when exceeded). */
+  max_bpm_jump: z.number().min(1).max(200).optional(),
+  /** Target fraction of the set in a major key, 0..1 (omitted → no balancing). */
+  major_ratio: z.number().min(0).max(1).optional(),
+});
+
+/**
+ * POST /v1/recommend/set — compose a whole ordered service from a theme/scripture
+ * seed, a target size or duration, an energy arc and the musical constraints.
+ * Either `target_size` or `target_duration_min` may be given (size wins).
+ */
+export const RecommendSetInputSchema = z.object({
+  theme: z.string().max(200).optional(),
+  scripture: z.string().max(200).optional(),
+  description: z.string().max(2000).optional(),
+  language: z.string().optional(),
+  arc: SetArcSchema.optional(),
+  target_size: z.number().int().min(1).max(20).optional(),
+  target_duration_min: z.number().int().min(1).max(240).optional(),
+  constraints: ComposeConstraintsSchema.optional(),
+});
+
+/**
+ * Extended schema used only by the API route. Adds `_candidates` for offline
+ * unit-testing (a fully-hydrated pool injected directly, bypassing the DB +
+ * embedder). Never set in production — when absent the route takes the real
+ * retrieval path.
+ */
+export const RecommendSetRouteSchema = RecommendSetInputSchema.extend({
+  _candidates: z
+    .array(
+      z.object({
+        id: z.string(),
+        canonical_title: z.string(),
+        themes: z.array(z.string()).default([]),
+        bible_refs: z.array(z.string()).default([]),
+        popularity_score: z.number().default(0),
+        language: z.string().default("en"),
+        semantic_score: z.number().min(0).max(1).default(0),
+        key: z.string().nullable().optional(),
+        bpm: z.number().nullable().optional(),
+        duration_sec: z.number().nullable().optional(),
+      }),
+    )
+    .optional(),
+});
+
 export const LicensingReportInputSchema = z.object({
   church_id: z.string().uuid(),
   from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
