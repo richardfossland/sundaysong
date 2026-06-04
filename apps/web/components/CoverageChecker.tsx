@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import type { CoverageInput, SongCoverageResult } from "@sunday/song-sdk";
+import type { CoverageInput, SongCoverageResult } from "@sundaysong/sdk";
 import { api } from "@/lib/client";
 
 type Profile = CoverageInput["profile"];

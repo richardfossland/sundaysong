@@ -1,5 +1,5 @@
 /**
- * `@sunday/song-sdk` — official TypeScript client.
+ * `@sundaysong/sdk` — official TypeScript client.
  *
  * Used by SundayStage, SundayPlan, sundaysong.com, and any third-party
  * integration. Wraps the public REST API with typed methods, helpful

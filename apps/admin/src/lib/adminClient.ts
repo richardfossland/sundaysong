@@ -3,7 +3,7 @@
  * oversight endpoints the admin dashboard consumes (Phase 8 / Phase 9).
  *
  * These routes are behind the Sunday JWT (the `churchScoped`/admin guard wired
- * in the API). The client mirrors the public `@sunday/song-sdk` shape: a single
+ * in the API). The client mirrors the public `@sundaysong/sdk` shape: a single
  * injectable `fetch` so integration tests can mock every response with no
  * network — the same dependency-injection seam the recommend/usage route tests
  * use. The base URL resolves to the internal API host server-side.

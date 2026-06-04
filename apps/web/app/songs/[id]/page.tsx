@@ -1,6 +1,6 @@
 import Link from "next/link";
-import type { SongDetail, SongVariant } from "@sunday/song-sdk";
-import { SundaySongError } from "@sunday/song-sdk";
+import type { SongDetail, SongVariant } from "@sundaysong/sdk";
+import { SundaySongError } from "@sundaysong/sdk";
 import { api } from "@/lib/client";
 
 export const dynamic = "force-dynamic";

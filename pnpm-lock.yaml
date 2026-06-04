@@ -17,7 +17,7 @@ importers:
 
   apps/admin:
     dependencies:
-      '@sunday/song-sdk':
+      '@sundaysong/sdk':
         specifier: workspace:*
         version: link:../../packages/sdk
       '@sundaysong/shared':
@@ -94,7 +94,7 @@ importers:
 
   apps/web:
     dependencies:
-      '@sunday/song-sdk':
+      '@sundaysong/sdk':
         specifier: workspace:*
         version: link:../../packages/sdk
       '@sundaysong/shared':

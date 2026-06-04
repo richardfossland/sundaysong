@@ -1,4 +1,4 @@
-import type { SourceSummary } from "@sunday/song-sdk";
+import type { SourceSummary } from "@sundaysong/sdk";
 import { api } from "@/lib/client";
 
 export const dynamic = "force-dynamic";

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { RecommendOutput } from "@sunday/song-sdk";
+import type { RecommendOutput } from "@sundaysong/sdk";
 import { api } from "@/lib/client";
 import { ARCS, EMPTY_FORM, validateForm, type Arc, type RecommendFormState } from "@/lib/recommendations";
 import { SetDisplay } from "./SetDisplay";

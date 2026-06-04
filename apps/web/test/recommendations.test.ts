@@ -9,7 +9,7 @@
 
 import { describe, expect, test } from "bun:test";
 
-import type { RecommendOutput, Song } from "@sunday/song-sdk";
+import type { RecommendOutput, Song } from "@sundaysong/sdk";
 import {
   arcSummary,
   EMPTY_FORM,

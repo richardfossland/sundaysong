@@ -1,5 +1,5 @@
 {
-  "name": "@sunday/song-sdk",
+  "name": "@sundaysong/sdk",
   "version": "0.0.1",
   "description": "Official TypeScript SDK for SundaySong — worship song discovery API",
   "type": "module",

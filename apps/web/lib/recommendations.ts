@@ -8,7 +8,7 @@
  * `RecommendOutput` payloads.
  */
 
-import type { RecommendInput, RecommendOutput } from "@sunday/song-sdk";
+import type { RecommendInput, RecommendOutput } from "@sundaysong/sdk";
 
 export type Arc = NonNullable<RecommendInput["arc"]>;
 
