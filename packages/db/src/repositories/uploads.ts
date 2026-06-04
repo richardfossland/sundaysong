@@ -92,6 +92,13 @@ export async function getUpload(sql: Executor, id: string): Promise<UploadRecord
  * latest `moderator_note`, AND append `{ action, status, note, at }` to the
  * `moderator_notes` history in one statement. The transition is assumed
  * already validated by `applyAction`; this is pure persistence.
+ *
+ * When `expectedStatus` is supplied the update is guarded against the
+ * lost-update race: it only lands while the row is still at that status, so two
+ * concurrent moderators cannot silently clobber each other. Returns the number
+ * of rows updated — `0` means the row moved on under us (the caller should
+ * surface a 409 Conflict). Omitting `expectedStatus` keeps the legacy
+ * unconditional behaviour for callers that don't need the guard.
  */
 export async function updateUploadStatus(
   sql: Executor,
@@ -99,18 +106,33 @@ export async function updateUploadStatus(
   status: UploadStatus,
   action: ModerationAction,
   note?: string,
-): Promise<void> {
+  expectedStatus?: UploadStatus,
+): Promise<number> {
   const entry: ModerationNote = { action, status, note: note ?? null, at: new Date().toISOString() };
   // Append via jsonb_build_array so we pass `entry` as a single jsonb OBJECT —
   // Bun.SQL would otherwise serialize a JS array into a Postgres array literal
   // (the same gotcha encode.ts documents for text[]), corrupting the history.
-  await sql`
-    update upload set
-      status = ${status},
-      moderator_note = ${note ?? null},
-      moderator_notes = moderator_notes || jsonb_build_array(${entry}::jsonb)
-    where id = ${id}
-  `;
+  // `returning id` lets us report rows-affected for the optimistic-concurrency
+  // guard above.
+  const rows =
+    expectedStatus === undefined
+      ? await sql<Array<{ id: string }>>`
+          update upload set
+            status = ${status},
+            moderator_note = ${note ?? null},
+            moderator_notes = moderator_notes || jsonb_build_array(${entry}::jsonb)
+          where id = ${id}
+          returning id
+        `
+      : await sql<Array<{ id: string }>>`
+          update upload set
+            status = ${status},
+            moderator_note = ${note ?? null},
+            moderator_notes = moderator_notes || jsonb_build_array(${entry}::jsonb)
+          where id = ${id} and status = ${expectedStatus}
+          returning id
+        `;
+  return rows.length;
 }
 
 /**
