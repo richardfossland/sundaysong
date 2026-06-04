@@ -16,6 +16,7 @@
 import { describe, expect, test } from "bun:test";
 
 import type { Song, SongVariant, UploadRecord } from "@sundaysong/shared";
+import type { SongVariantFilter } from "@sundaysong/db";
 import {
   createSongsRoutes,
   type SongUploadStore,
@@ -399,5 +400,108 @@ describe("GET /v1/songs/search — offline Postgres fallback re-ranking", () => 
     expect(json.hits[0]!.song.id).toBe("song");
     // An exact match modulo Nordic folding scores at the top of the ladder.
     expect(json.hits[0]!.score).toBeGreaterThanOrEqual(0.85);
+  });
+});
+
+// ── bpm/key filter threaded into the SQL window (stretch) ────────────────────
+// The validated bpm_min/bpm_max/key query params must reach the fallback store
+// AND constrain the population BEFORE the (limit, offset) window — never after —
+// so paging and `total` stay correct under a filter. This store filters the
+// candidate list by the variant filter, THEN windows: exactly the seam the
+// Postgres `searchSongsByTitle(..., filter)` implements.
+describe("GET /v1/songs/search — bpm/key filter on the offline fallback", () => {
+  type FilterableSong = Song & { _bpm: number | null; _key: string | null };
+
+  function filteringStore(catalog: FilterableSong[]): SongSearchStore & {
+    lastFilter: SongVariantFilter | undefined;
+  } {
+    const variantFor = (s: FilterableSong): SongVariant => ({
+      ...fakeVariant(s.id, s.canonical_title),
+      bpm: s._bpm,
+      key: s._key,
+    });
+    const hydrate = (s: FilterableSong) => ({ song: s, variants: [variantFor(s)], translations: [] as never[] });
+    const matches = (s: FilterableSong, f?: SongVariantFilter): boolean => {
+      if (!f) return true;
+      if (f.bpm_min != null && (s._bpm == null || s._bpm < f.bpm_min)) return false;
+      if (f.bpm_max != null && (s._bpm == null || s._bpm > f.bpm_max)) return false;
+      if (f.key != null && f.key !== "" && (s._key == null || s._key.toLowerCase() !== f.key.toLowerCase())) return false;
+      return true;
+    };
+    const store = {
+      lastFilter: undefined as SongVariantFilter | undefined,
+      async hydrateByIds(ids: string[]) {
+        const byId = new Map(catalog.map((s) => [s.id, s]));
+        return ids.map((id) => byId.get(id)).filter((s): s is FilterableSong => s != null).map(hydrate);
+      },
+      // Filter FIRST, then window — the same order the SQL EXISTS + limit does.
+      async fallbackSearch(_q: string, limit: number, offset = 0, filter?: SongVariantFilter) {
+        store.lastFilter = filter;
+        return catalog.filter((s) => matches(s, filter)).slice(offset, offset + limit).map(hydrate);
+      },
+      // Count over the filtered population, page-independent.
+      async fallbackCount(_q: string, filter?: SongVariantFilter) {
+        return catalog.filter((s) => matches(s, filter)).length;
+      },
+    };
+    return store;
+  }
+
+  const fsong = (id: string, title: string, bpm: number | null, key: string | null): FilterableSong => ({
+    ...fakeSong(id, title, 0),
+    _bpm: bpm,
+    _key: key,
+  });
+
+  test("threads bpm_min/bpm_max/key from the query into the store filter", async () => {
+    const store = filteringStore([fsong("a", "Grace A", 80, "G")]);
+    const routes = createSongsRoutes({ searchStore: store });
+    await routes.request("/search?q=grace&bpm_min=70&bpm_max=90&key=G");
+    expect(store.lastFilter).toEqual({ bpm_min: 70, bpm_max: 90, key: "G" });
+  });
+
+  test("filters by a bpm range and reports the FILTERED total (not the unfiltered catalog)", async () => {
+    const catalog = [
+      fsong("slow", "Grace Slow", 60, "C"),
+      fsong("mid", "Grace Mid", 100, "C"),
+      fsong("fast", "Grace Fast", 140, "C"),
+    ];
+    const res = await (await createSongsRoutes({ searchStore: filteringStore(catalog) }).request(
+      "/search?q=grace&bpm_min=90&bpm_max=120",
+    )).json() as SearchResponse;
+    expect(res.engine).toBe("postgres_fallback");
+    expect(res.hits.map((h) => h.song.id)).toEqual(["mid"]);
+    // total reflects the filtered population — page-stable under the filter.
+    expect(res.total).toBe(1);
+  });
+
+  test("filters by key case-insensitively", async () => {
+    const catalog = [fsong("g", "Grace G", 90, "G"), fsong("d", "Grace D", 90, "D")];
+    const res = await (await createSongsRoutes({ searchStore: filteringStore(catalog) }).request(
+      "/search?q=grace&key=g",
+    )).json() as SearchResponse;
+    expect(res.hits.map((h) => h.song.id)).toEqual(["g"]);
+    expect(res.total).toBe(1);
+  });
+
+  test("applies the filter BEFORE the window so page totals stay correct", async () => {
+    // 30 songs; only the 15 with bpm in-range survive. With page_size 10 the
+    // filtered total must be 15 on every page (not 30, not the per-page count).
+    const catalog = Array.from({ length: 30 }, (_, i) =>
+      fsong(`s${i}`, `Grace ${String(i).padStart(2, "0")}`, i < 15 ? 100 : 60, "C"),
+    );
+    const routes = createSongsRoutes({ searchStore: filteringStore(catalog) });
+    const p0 = (await (await routes.request("/search?q=grace&bpm_min=90&page=0&page_size=10")).json()) as SearchResponse;
+    const p1 = (await (await routes.request("/search?q=grace&bpm_min=90&page=1&page_size=10")).json()) as SearchResponse;
+    expect(p0.total).toBe(15);
+    expect(p1.total).toBe(15);
+    expect(p0.hits).toHaveLength(10);
+    expect(p1.hits).toHaveLength(5); // the filtered remainder, not 10
+  });
+
+  test("no bpm/key params ⇒ undefined filter (unchanged behaviour)", async () => {
+    const store = filteringStore([fsong("a", "Grace", 90, "C")]);
+    await createSongsRoutes({ searchStore: store }).request("/search?q=grace");
+    expect(store.lastFilter).toEqual({});
   });
 });

@@ -56,8 +56,57 @@ export async function getSong(sql: Executor, id: string): Promise<Song | null> {
   return rows[0] ?? null;
 }
 
+/**
+ * Optional musical filters for the trigram fallback search. These constrain on
+ * the song's variants (bpm/key live on `song_variant`, not `song`): a song
+ * matches when it has *some* variant satisfying the given bounds. Applied INSIDE
+ * the windowed query (before limit/offset) so paging and the candidate count
+ * stay consistent — never post-hoc over the returned page.
+ */
+export interface SongVariantFilter {
+  bpm_min?: number;
+  bpm_max?: number;
+  /** Exact musical key (case-insensitive), e.g. "G", "Bb". */
+  key?: string;
+}
+
+const hasVariantFilter = (f?: SongVariantFilter): boolean =>
+  f != null && (f.bpm_min != null || f.bpm_max != null || (f.key != null && f.key !== ""));
+
+/** Normalised filter values: undefined bounds become NULL so they no-op in SQL. */
+const filterArgs = (f: SongVariantFilter) => ({
+  bpmMin: f.bpm_min ?? null,
+  bpmMax: f.bpm_max ?? null,
+  key: f.key != null && f.key !== "" ? f.key : null,
+});
+
 /** Fuzzy title search using the pg_trgm similarity index (Phase 3.1 fallback). */
-export async function searchSongsByTitle(sql: Executor, q: string, limit = 20, offset = 0): Promise<Song[]> {
+export async function searchSongsByTitle(
+  sql: Executor,
+  q: string,
+  limit = 20,
+  offset = 0,
+  filter?: SongVariantFilter,
+): Promise<Song[]> {
+  if (hasVariantFilter(filter)) {
+    // The bpm/key filter constrains on the song's variants via EXISTS, applied
+    // INSIDE the windowed query (before limit/offset) so paging stays correct.
+    // Each bound is NULL-guarded so an unset bound never excludes a row.
+    const { bpmMin, bpmMax, key } = filterArgs(filter!);
+    return await sql<Song[]>`
+      select * from song
+      where canonical_title ilike ${"%" + q + "%"}
+        and exists (
+          select 1 from song_variant v
+          where v.song_id = song.id
+            and (${bpmMin}::int is null or v.bpm >= ${bpmMin}::int)
+            and (${bpmMax}::int is null or v.bpm <= ${bpmMax}::int)
+            and (${key}::text is null or lower(v.key) = lower(${key}::text))
+        )
+      order by similarity(canonical_title, ${q}) desc, popularity_score desc
+      limit ${limit} offset ${offset}
+    `;
+  }
   return await sql<Song[]>`
     select * from song
     where canonical_title ilike ${"%" + q + "%"}
@@ -74,7 +123,28 @@ export async function searchSongsByTitle(sql: Executor, q: string, limit = 20, o
  * route's Nordic-aware re-ranker may drop a few substring-only hits, so it is a
  * slight superset of the rendered hits, but it is monotonic and page-stable.
  */
-export async function countSongsByTitle(sql: Executor, q: string): Promise<number> {
+export async function countSongsByTitle(
+  sql: Executor,
+  q: string,
+  filter?: SongVariantFilter,
+): Promise<number> {
+  if (hasVariantFilter(filter)) {
+    // Mirror `searchSongsByTitle`'s predicate EXACTLY so the count remains the
+    // population the page window draws from — page-stable under bpm/key filters.
+    const { bpmMin, bpmMax, key } = filterArgs(filter!);
+    const rows = await sql<Array<{ count: number }>>`
+      select count(*)::int as count from song
+      where canonical_title ilike ${"%" + q + "%"}
+        and exists (
+          select 1 from song_variant v
+          where v.song_id = song.id
+            and (${bpmMin}::int is null or v.bpm >= ${bpmMin}::int)
+            and (${bpmMax}::int is null or v.bpm <= ${bpmMax}::int)
+            and (${key}::text is null or lower(v.key) = lower(${key}::text))
+        )
+    `;
+    return Number(rows[0]?.count ?? 0);
+  }
   const rows = await sql<Array<{ count: number }>>`
     select count(*)::int as count from song
     where canonical_title ilike ${"%" + q + "%"}

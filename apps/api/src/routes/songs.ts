@@ -7,6 +7,7 @@ import { SongSearchQuerySchema, SemanticSearchSchema, SongUploadInputSchema } fr
 /** The validated body of `POST /v1/songs`, inferred from the shared schema. */
 type SongUploadInput = z.infer<typeof SongUploadInputSchema>;
 import type { Song, SongVariant } from "@sundaysong/shared";
+import type { SongVariantFilter } from "@sundaysong/db";
 import { getSql, getSong, getSongsByIds, listVariantsForSong, lyricistsForSong, searchSongsByTitle, countSongsByTitle, translationsForSong, translationsForSongs, nearestSongs, upsertSongWithVariant } from "@sundaysong/db";
 import { MeiliClient, SONG_INDEX, songToSearchDoc, rankDocs } from "@sundaysong/search";
 import { getEmbedder } from "@sundaysong/ai";
@@ -117,16 +118,19 @@ export interface SongSearchStore {
   /**
    * The offline fallback: trigram title search returning candidate songs with
    * their relations, windowed by (limit, offset) so the route can page. The
-   * route re-ranks the returned candidates with the Nordic-aware scorer.
+   * route re-ranks the returned candidates with the Nordic-aware scorer. The
+   * optional `filter` (bpm/key) is applied INSIDE the SQL window — never after —
+   * so paging and the candidate count stay consistent.
    */
-  fallbackSearch(q: string, limit: number, offset?: number): Promise<SongWithRelations[]>;
+  fallbackSearch(q: string, limit: number, offset?: number, filter?: SongVariantFilter): Promise<SongWithRelations[]>;
   /**
    * The count of candidate matches behind `fallbackSearch` — the whole ILIKE
    * population the page window draws from, independent of page/limit. The route
    * reports this as the fallback `total` so it is page-stable and agrees with
    * the Meili branch's `estimatedTotalHits` (rather than the per-page hit count).
+   * Must apply the SAME `filter` as `fallbackSearch` for the count to stay page-stable.
    */
-  fallbackCount(q: string): Promise<number>;
+  fallbackCount(q: string, filter?: SongVariantFilter): Promise<number>;
 }
 
 /**
@@ -156,13 +160,13 @@ export function postgresSearchStore(): SongSearchStore {
       const songs = ids.map((id) => byId.get(id)).filter((s): s is Song => s != null);
       return hydrate(songs);
     },
-    async fallbackSearch(q, limit, offset = 0) {
+    async fallbackSearch(q, limit, offset = 0, filter) {
       const sql = getSql();
-      return hydrate(await searchSongsByTitle(sql, q, limit, offset));
+      return hydrate(await searchSongsByTitle(sql, q, limit, offset, filter));
     },
-    async fallbackCount(q) {
+    async fallbackCount(q, filter) {
       const sql = getSql();
-      return countSongsByTitle(sql, q);
+      return countSongsByTitle(sql, q, filter);
     },
   };
 }
@@ -195,10 +199,25 @@ export function createSongsRoutes(deps: SongsRoutesDeps = {}): Hono {
 routes.get("/search", zValidator("query", SongSearchQuerySchema), async (c) => {
   const q = c.req.valid("query");
 
+  // bpm/key are variant-level musical filters, applied INSIDE the SQL window on
+  // the Postgres-fallback path (never post-hoc over the page — that would corrupt
+  // pagination/total). Build the filter once for the fallback branch.
+  const variantFilter: SongVariantFilter = {
+    ...(q.bpm_min != null ? { bpm_min: q.bpm_min } : {}),
+    ...(q.bpm_max != null ? { bpm_max: q.bpm_max } : {}),
+    ...(q.key ? { key: q.key } : {}),
+  };
+
   try {
     const filters: string[] = [];
     if (q.language) filters.push(`languages = ${filterValue(q.language)}`);
     if (q.themes?.length) filters.push(`themes IN [${q.themes.map(filterValue).join(", ")}]`);
+    // NOTE (deferred): bpm/key are NOT yet filterable on the Meili path. The
+    // index doc (`songToSearchDoc`) carries no bpm/key and they are not in
+    // `filterableAttributes`, so adding a Meili filter here would require an
+    // index-schema change + a full reindex — neither offline-verifiable (Meili
+    // is down in tests). Wired cleanly on the offline Postgres-fallback path
+    // only; the Meili-path bpm/key filter is left for a reindex-backed follow-up.
 
     const meili = new MeiliClient();
     const res = await meili.search<{ id: string }>(SONG_INDEX, {
@@ -224,8 +243,8 @@ routes.get("/search", zValidator("query", SongSearchQuerySchema), async (c) => {
     // still orders by real title relevance (folding å/ø/æ etc.) and emits
     // genuine 0..1 scores instead of a flat trigram order with score:1.
     const [candidates, total] = await Promise.all([
-      searchStore.fallbackSearch(q.q, q.page_size, q.page * q.page_size),
-      searchStore.fallbackCount(q.q),
+      searchStore.fallbackSearch(q.q, q.page_size, q.page * q.page_size, variantFilter),
+      searchStore.fallbackCount(q.q, variantFilter),
     ]);
     const byId = new Map(candidates.map((h) => [h.song.id, h]));
     const docs = candidates.map((h) => songToSearchDoc(h.song, h.variants));
