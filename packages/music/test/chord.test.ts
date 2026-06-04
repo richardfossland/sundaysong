@@ -69,3 +69,14 @@ describe("transposeChordSymbol", () => {
     expect(transposeChordSymbol("x2", 2, {})).toBe("x2");
   });
 });
+
+describe("German is/es accidentals are dialect-gated", () => {
+  test("a German-style slash bass is not silently mis-rooted in the international dialect", () => {
+    // "Ees" (= Eb in German verbose notation) is meaningless internationally, so
+    // a slash bass with a non-note must make the whole token a non-chord, not a
+    // chord with bass=3 (Eb).
+    expect(parseChord("C/Ees", "international")).toBeNull();
+    // German dialect still resolves it correctly (Eb = pc 3).
+    expect(parseChord("C/Ees", "german")).toEqual({ root: 0, quality: "", bass: 3 });
+  });
+});

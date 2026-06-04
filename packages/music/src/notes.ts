@@ -57,10 +57,12 @@ export function noteToPc(input: string, dialect: Dialect = "international"): num
   } else if (rest.startsWith("b") || rest.startsWith("♭")) {
     pc -= 1;
     rest = rest.slice(1);
-  } else if (/^is/i.test(rest)) {
+  } else if (dialect === "german" && /^is/i.test(rest)) {
+    // Verbose is/es accidentals only exist in German notation — applying them in
+    // the international dialect silently re-roots e.g. "Ees" to Eb. Gate them.
     pc += 1;
     rest = rest.slice(2);
-  } else if (/^es/i.test(rest)) {
+  } else if (dialect === "german" && /^es/i.test(rest)) {
     pc -= 1;
     rest = rest.slice(2);
   }
