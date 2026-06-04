@@ -38,8 +38,11 @@ export function syllableCount(line: string, language = "en"): number {
       inVowel = isVowel;
     }
     // English silent terminal "e" ("grace" = 1, not 2) — only when >1 group.
-    if (language.startsWith("en") && groups > 1 && /e$/i.test(w) && !/le$/i.test(w)) groups--;
-    return Math.max(w.replace(/[^a-zæøåäöü]/gi, "") ? 1 : 0, groups);
+    // Test against the letters-only form so trailing punctuation ("grace,") does
+    // not hide the terminal e and inflate the count.
+    const letters = w.replace(/[^a-zæøåäöü]/gi, "");
+    if (language.startsWith("en") && groups > 1 && /e$/i.test(letters) && !/le$/i.test(letters)) groups--;
+    return Math.max(letters ? 1 : 0, groups);
   };
   return line
     .split(/\s+/)
