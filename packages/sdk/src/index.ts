@@ -166,9 +166,19 @@ export class SundaySong {
 
   readonly usage = {
     log: (row: UsageLogPayload) =>
-      this.request<{ ok: true; idempotency_key: string }>("/v1/usage/log", {
+      this.request<{ ok: true; idempotency_key: string; logged: boolean }>("/v1/usage/log", {
         method: "POST",
-        body: JSON.stringify(row),
+        // The wire contract (`UsageEvent` in @sundaysong/shared, vendored from
+        // @sunday/contracts) requires `variant_id` and `duration_displayed_sec`
+        // to be PRESENT — they are `.nullable()`, not `.optional()`. The SDK type
+        // lets callers omit them for ergonomics, so normalise to explicit `null`
+        // here; sending the bare object (omitting the keys) is rejected 400 by
+        // the route's validator. Keep this in sync with `UsageEvent`.
+        body: JSON.stringify({
+          ...row,
+          variant_id: row.variant_id ?? null,
+          duration_displayed_sec: row.duration_displayed_sec ?? null,
+        }),
       }),
   };
 

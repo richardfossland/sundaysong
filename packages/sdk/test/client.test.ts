@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { UsageEvent } from "@sundaysong/shared";
 import { SundaySong, SundaySongError, type RecommendSeasonOutput } from "../src/index";
 
 function mockFetch(responses: Array<{ status: number; body?: unknown; headers?: Record<string, string> }>) {
@@ -113,5 +114,52 @@ describe("recommend namespace", () => {
 
     expect(reqs[0]!.url).toBe("https://api.sundaysong.com/v1/recommend");
     expect(reqs[0]!.body).toEqual({ theme: "grace" });
+  });
+});
+
+describe("usage.log wire contract", () => {
+  // The route validates the body against `UsageEvent`, where `variant_id` and
+  // `duration_displayed_sec` are `.nullable()` but NOT `.optional()` — the keys
+  // must be present. The SDK type lets callers omit them; the SDK must therefore
+  // send explicit `null`s, or the route rejects the request 400. These tests pin
+  // that the emitted body actually parses against the real route schema.
+  const valid = {
+    church_id: "11111111-1111-1111-1111-111111111111",
+    song_id: "22222222-2222-2222-2222-222222222222",
+    service_date: "2026-01-04",
+    was_streamed: true,
+    idempotency_key: "svc-1:item-1",
+  };
+
+  test("fills variant_id + duration_displayed_sec with null when omitted", async () => {
+    const { fetch, reqs } = recordingFetch({ ok: true, idempotency_key: valid.idempotency_key, logged: true });
+    const api = new SundaySong({ fetch, sleep: noSleep });
+
+    await api.usage.log(valid);
+
+    expect(reqs[0]!.url).toBe("https://api.sundaysong.com/v1/usage/log");
+    expect(reqs[0]!.method).toBe("POST");
+    const body = reqs[0]!.body as Record<string, unknown>;
+    expect(body.variant_id).toBeNull();
+    expect(body.duration_displayed_sec).toBeNull();
+    // The emitted body must satisfy the actual route validator (schema_version
+    // defaults in, the nullable-required fields are present).
+    expect(UsageEvent.safeParse(body).success).toBe(true);
+  });
+
+  test("preserves explicit variant_id + duration", async () => {
+    const { fetch, reqs } = recordingFetch({ ok: true, idempotency_key: valid.idempotency_key, logged: true });
+    const api = new SundaySong({ fetch, sleep: noSleep });
+
+    await api.usage.log({
+      ...valid,
+      variant_id: "33333333-3333-3333-3333-333333333333",
+      duration_displayed_sec: 240,
+    });
+
+    const body = reqs[0]!.body as Record<string, unknown>;
+    expect(body.variant_id).toBe("33333333-3333-3333-3333-333333333333");
+    expect(body.duration_displayed_sec).toBe(240);
+    expect(UsageEvent.safeParse(body).success).toBe(true);
   });
 });
