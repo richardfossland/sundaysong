@@ -2,10 +2,10 @@
 
 Worship song discovery + AI intelligence service — part of the **Sunday suite** alongside [SundayRec](https://github.com/richardfossland/sundayrec), SundayStage, and SundayPlan.
 
-> 🧪 **Status: v0.1.0-beta — testable.** Full catalog + search spine working:
+> 🧪 **Status: v0.2.0-beta — testable.** Full catalog + search spine working:
 > full-text **and** semantic search, cross-language translations, transposition,
 > CCLI/TONO licensing + CSV export, catalog-grounded recommendations, the public
-> REST API + TypeScript SDK, and the web app. ~166 tests; CI green on every push.
+> REST API + TypeScript SDK, and the web app. ~590 tests; CI green on every push.
 
 ## Quick start (test the release)
 
