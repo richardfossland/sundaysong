@@ -25,6 +25,7 @@ export {
   updateSong,
   getSong,
   searchSongsByTitle,
+  countSongsByTitle,
   listSongs,
   getSongsByIds,
 } from "./repositories/songs";

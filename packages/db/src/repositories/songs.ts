@@ -66,6 +66,22 @@ export async function searchSongsByTitle(sql: Executor, q: string, limit = 20, o
   `;
 }
 
+/**
+ * Count the candidate matches for the trigram-fallback title search. Uses the
+ * EXACT predicate `searchSongsByTitle` windows over (`canonical_title ILIKE
+ * '%q%'`), so the count is the population the (limit, offset) page draws from —
+ * a page-stable `total` for the offline fallback. It is a candidate count: the
+ * route's Nordic-aware re-ranker may drop a few substring-only hits, so it is a
+ * slight superset of the rendered hits, but it is monotonic and page-stable.
+ */
+export async function countSongsByTitle(sql: Executor, q: string): Promise<number> {
+  const rows = await sql<Array<{ count: number }>>`
+    select count(*)::int as count from song
+    where canonical_title ilike ${"%" + q + "%"}
+  `;
+  return Number(rows[0]?.count ?? 0);
+}
+
 export async function listSongs(sql: Executor, limit = 50): Promise<Song[]> {
   return await sql<Song[]>`select * from song order by created_at desc limit ${limit}`;
 }
