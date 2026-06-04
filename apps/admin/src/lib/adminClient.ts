@@ -29,6 +29,16 @@ export class AdminApiError extends Error {
     this.status = status;
     this.code = code;
   }
+
+  /**
+   * True when the API rejected a moderation write because the upload changed
+   * under us (another moderator got there first) — the optimistic-concurrency
+   * guard. The UI surfaces this as a "reload and retry" prompt rather than a
+   * generic failure.
+   */
+  get isConflict(): boolean {
+    return this.status === 409;
+  }
 }
 
 /** A single source-sync run as reported by the connectors pipeline. */
@@ -96,7 +106,13 @@ export class AdminClient {
     return this.request(`/v1/admin/uploads${q}`);
   }
 
-  /** Approve / reject / request-changes on one upload. */
+  /**
+   * Approve / reject / request-changes on one upload.
+   *
+   * Rejects with an `AdminApiError` whose `.isConflict` is true (HTTP 409) when
+   * a concurrent moderator already moved the upload — the caller should reload
+   * the queue rather than retry blindly.
+   */
   moderateUpload(uploadId: string, action: ModerationAction, note?: string): Promise<ModerateResult> {
     return this.request(`/v1/admin/uploads/${encodeURIComponent(uploadId)}/moderate`, {
       method: "POST",

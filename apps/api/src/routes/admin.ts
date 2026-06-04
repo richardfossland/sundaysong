@@ -75,8 +75,20 @@ export interface AdminStore {
   listUploads(status?: UploadStatus): Promise<UploadRecord[]>;
   /** One upload by id, or null when it doesn't exist. */
   getUpload(id: string): Promise<UploadRecord | null>;
-  /** Persist a moderation decision (new status + the note that produced it). */
-  saveModeration(id: string, status: UploadStatus, note?: string): Promise<void>;
+  /**
+   * Persist a moderation decision under an OPTIMISTIC-CONCURRENCY guard: the
+   * update only lands when the row is still at `expectedStatus` (the status we
+   * loaded + validated the transition against). Returns the number of rows
+   * actually updated — `0` means the row changed under us (another moderator
+   * got there first), and the caller must surface a 409 Conflict rather than
+   * silently clobbering the other decision.
+   */
+  saveModeration(
+    id: string,
+    expectedStatus: UploadStatus,
+    status: UploadStatus,
+    note?: string,
+  ): Promise<number>;
   /** Connector sync history, newest first. */
   listSyncRuns(): Promise<SourceSyncRun[]>;
   /** Aggregated search-volume + coverage-gap analytics. */
@@ -154,12 +166,18 @@ export function postgresAdminStore(sqlOverride?: Executor): AdminStore {
       return rows[0] ?? null;
     },
 
-    async saveModeration(id, status, note) {
+    async saveModeration(id, expectedStatus, status, note) {
       const sql = exec();
-      await sql`
+      // CONDITIONAL update: guarded on the status we loaded the row at, so two
+      // concurrent moderators can't silently clobber each other (lost-update
+      // race). `returning id` lets us count the rows that actually changed —
+      // `0` when the row already moved on, which the route turns into a 409.
+      const rows = await sql<Array<{ id: string }>>`
         update upload
            set status = ${status}, moderator_note = ${note ?? null}
-         where id = ${id}`;
+         where id = ${id} and status = ${expectedStatus}
+         returning id`;
+      return rows.length;
     },
 
     async listSyncRuns() {
@@ -292,6 +310,12 @@ export function createAdminRoutes(deps: AdminRoutesDeps): Hono {
    * (`applyAction`); this handler loads the upload, applies the action, and —
    * only on a legal transition — persists the new status. An illegal action or
    * a missing required note is a 422 with the machine's own error message.
+   *
+   * Persistence is guarded against the lost-update race: `saveModeration` only
+   * writes when the row is still at the status we loaded + validated against
+   * (`upload.status`). If a concurrent moderator already moved the row, the
+   * conditional update touches `0` rows and we return 409 Conflict rather than
+   * clobbering their decision.
    */
   routes.post("/uploads/:id/moderate", zValidator("json", ModerateBody), async (c) => {
     const id = c.req.param("id");
@@ -307,7 +331,16 @@ export function createAdminRoutes(deps: AdminRoutesDeps): Hono {
       return c.json({ error: "invalid_transition", message: result.error }, 422);
     }
 
-    await deps.store.saveModeration(id, result.status, note);
+    const updated = await deps.store.saveModeration(id, upload.status, result.status, note);
+    if (updated === 0) {
+      return c.json(
+        {
+          error: "conflict",
+          message: "This upload was changed by another moderator. Reload the queue and try again.",
+        },
+        409,
+      );
+    }
     return c.json({ upload_id: id, status: result.status });
   });
 

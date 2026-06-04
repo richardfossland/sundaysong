@@ -63,9 +63,14 @@ function fakeWorld() {
     async getUpload(id) {
       return uploads.get(id) ?? null;
     },
-    async saveModeration(id, status, note) {
+    async saveModeration(id, expectedStatus, status, note) {
       const u = uploads.get(id);
-      if (u) { u.status = status; u.moderator_note = note ?? null; }
+      // Optimistic-concurrency guard: only write when the row is still at the
+      // status the route loaded + validated against. Returns rows-affected.
+      if (!u || u.status !== expectedStatus) return 0;
+      u.status = status;
+      u.moderator_note = note ?? null;
+      return 1;
     },
     async listSyncRuns() {
       return [];

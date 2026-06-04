@@ -45,15 +45,25 @@ interface FakeStoreOptions {
   uploads?: UploadRecord[];
   runs?: SourceSyncRun[];
   analytics?: AnalyticsSummary;
+  /**
+   * Force the optimistic-concurrency guard to report a lost update: when true,
+   * `saveModeration` writes nothing and returns 0 rows-affected, simulating a
+   * row that another moderator already moved on from. Mirrors the conditional
+   * `where id=$1 and status=$expected` missing in the live store.
+   */
+  conflict?: boolean;
 }
 
 /**
  * A minimal in-memory `AdminStore`. `saved` captures every persisted
  * moderation decision so tests assert the route writes the right new status.
+ * `saveModeration` honours the optimistic-concurrency guard: it only "updates"
+ * when the row is still at `expectedStatus`, returning the rows-affected count
+ * (0 → the route returns 409).
  */
 function fakeStore(opts: FakeStoreOptions = {}) {
   const uploads = new Map((opts.uploads ?? []).map((u) => [u.id, { ...u }]));
-  const saved: Array<{ id: string; status: UploadStatus; note?: string }> = [];
+  const saved: Array<{ id: string; expectedStatus: UploadStatus; status: UploadStatus; note?: string }> = [];
   const store: AdminStore = {
     async listUploads(status) {
       const all = [...uploads.values()];
@@ -62,10 +72,15 @@ function fakeStore(opts: FakeStoreOptions = {}) {
     async getUpload(id) {
       return uploads.get(id) ?? null;
     },
-    async saveModeration(id, status, note) {
-      saved.push({ id, status, note });
+    async saveModeration(id, expectedStatus, status, note) {
       const u = uploads.get(id);
-      if (u) { u.status = status; u.moderator_note = note ?? null; }
+      // The conditional update: only lands when the row is still at the status
+      // we loaded it at (and the test hasn't forced a conflict).
+      if (opts.conflict || !u || u.status !== expectedStatus) return 0;
+      saved.push({ id, expectedStatus, status, note });
+      u.status = status;
+      u.moderator_note = note ?? null;
+      return 1;
     },
     async listSyncRuns() {
       return opts.runs ?? [];
@@ -201,7 +216,7 @@ describe("POST /v1/admin/uploads/:id/moderate", () => {
     expect(json).toEqual({ upload_id: "u1", status: "approved" });
 
     expect(saved).toHaveLength(1);
-    expect(saved[0]).toEqual({ id: "u1", status: "approved", note: undefined });
+    expect(saved[0]).toEqual({ id: "u1", expectedStatus: "pending", status: "approved", note: undefined });
   });
 
   test("request_changes persists the moderator note", async () => {
@@ -209,7 +224,38 @@ describe("POST /v1/admin/uploads/:id/moderate", () => {
     const res = await moderate(createAdminRoutes({ store }), "u1", { action: "request_changes", note: "add a CCLI number" });
 
     expect(res.status).toBe(200);
-    expect(saved[0]).toEqual({ id: "u1", status: "changes_requested", note: "add a CCLI number" });
+    expect(saved[0]).toEqual({
+      id: "u1",
+      expectedStatus: "pending",
+      status: "changes_requested",
+      note: "add a CCLI number",
+    });
+  });
+
+  test("guards the write on the loaded status (optimistic concurrency)", async () => {
+    // The conditional update must be threaded the status we loaded + validated
+    // the transition against, so the live SQL becomes `where id and status=$`.
+    const { store, saved } = fakeStore({ uploads: [upload({ id: "u1", status: "changes_requested" })] });
+    const res = await moderate(createAdminRoutes({ store }), "u1", { action: "approve" });
+
+    expect(res.status).toBe(200);
+    expect(saved[0]!.expectedStatus).toBe("changes_requested");
+    expect(saved[0]!.status).toBe("approved");
+  });
+
+  test("409 when the conditional update reports 0 rows — already claimed", async () => {
+    // A concurrent moderator already moved the row: `saveModeration` returns 0
+    // rows-affected (the `where … and status=$expected` matched nothing). The
+    // route must NOT report success — it returns 409 Conflict.
+    const { store, saved } = fakeStore({ uploads: [upload({ id: "u1", status: "pending" })], conflict: true });
+    const res = await moderate(createAdminRoutes({ store }), "u1", { action: "approve" });
+
+    expect(res.status).toBe(409);
+    const json = (await res.json()) as { error: string; message: string };
+    expect(json.error).toBe("conflict");
+    expect(json.message).toMatch(/another moderator/i);
+    // Nothing was persisted — the other moderator's decision stands.
+    expect(saved).toHaveLength(0);
   });
 
   test("422 on an illegal transition — and nothing is persisted", async () => {

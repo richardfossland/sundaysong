@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 
+import { AdminApiError } from "../lib/adminClient";
 import { allowedActions, applyAction, requiresNote } from "../lib/moderation";
 import type { ModerationAction, UploadRecord, UploadStatus } from "../lib/moderation";
 
@@ -64,10 +65,16 @@ export function UploadList({ uploads, onModerate }: UploadListProps) {
       await onModerate(upload.id, action, note);
       setRows((r) => ({ ...r, [upload.id]: { status: result.status, busy: false } }));
     } catch (e) {
-      setRows((r) => ({
-        ...r,
-        [upload.id]: { status: current, busy: false, error: e instanceof Error ? e.message : "Failed." },
-      }));
+      // On a 409 the upload was moderated by someone else first — revert the
+      // optimistic status and tell the moderator to reload, rather than show a
+      // generic failure (the lost-update guard talking).
+      const error =
+        e instanceof AdminApiError && e.isConflict
+          ? "Already moderated by someone else — reload the queue to see the current status."
+          : e instanceof Error
+            ? e.message
+            : "Failed.";
+      setRows((r) => ({ ...r, [upload.id]: { status: current, busy: false, error } }));
     }
   }
 
