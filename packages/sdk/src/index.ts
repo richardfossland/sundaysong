@@ -20,6 +20,9 @@ import type {
   RecommendOutput,
   RecommendAfterInput,
   RecommendAfterOutput,
+  RecommendSeasonInput,
+  RecommendSeasonOutput,
+  LiturgicalSeason,
   LicensingReport,
   TranslateInput,
   TranslationDraftResult,
@@ -138,6 +141,16 @@ export class SundaySong {
        */
       after: (input: RecommendAfterInput): Promise<RecommendAfterOutput> =>
         this.request("/v1/recommend/after", {
+          method: "POST",
+          body: JSON.stringify(input),
+        }),
+      /**
+       * Use case C — "songs that fit a liturgical season".
+       * Semantic retrieval + keyword-boosted re-scoring against the season's
+       * thematic profile (Advent, Christmas, Lent, Easter, …).
+       */
+      season: (input: RecommendSeasonInput): Promise<RecommendSeasonOutput> =>
+        this.request("/v1/recommend/season", {
           method: "POST",
           body: JSON.stringify(input),
         }),
@@ -369,4 +382,4 @@ export interface UsageLogPayload {
   idempotency_key: string;
 }
 
-export type { Song, SongVariant, SearchHit, RecommendInput, RecommendOutput, RecommendAfterInput, RecommendAfterOutput, LicensingReport, SongSection, NordicMetadata, TranslateInput, TranslationDraftResult };
+export type { Song, SongVariant, SearchHit, RecommendInput, RecommendOutput, RecommendAfterInput, RecommendAfterOutput, RecommendSeasonInput, RecommendSeasonOutput, LiturgicalSeason, LicensingReport, SongSection, NordicMetadata, TranslateInput, TranslationDraftResult };
