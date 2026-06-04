@@ -9,6 +9,7 @@
  * that drove it, so an admin sees *why*.
  */
 
+import { tokenize as foldTokens } from "@sundaysong/shared";
 import type { CandidateScore, MatchSignal, MatchSong, Recommendation } from "./types";
 
 const WEIGHTS = {
@@ -149,12 +150,15 @@ function titleTokenSimilarity(a: string, b: string): number {
   return union === 0 ? 0 : shared / union;
 }
 
+/**
+ * Tokenize a title for cognate matching. We fold Nordic letters via the shared
+ * `foldNordic` tokenizer (so "Når"/"Naar" and "Frälsare"/"Fralsare" share
+ * tokens identically to search), then drop short words and stopwords. Without
+ * the shared fold the cross-language matcher would treat keyboard/accent
+ * variants as distinct tokens — the exact drift this consolidation removes.
+ */
 function tokenize(title: string): string[] {
-  return title
-    .toLowerCase()
-    .replace(/[^\p{L}\p{N}\s]/gu, " ")
-    .split(/\s+/)
-    .filter((t) => t.length >= 3 && !STOPWORDS.has(t));
+  return foldTokens(title).filter((t) => t.length >= 3 && !STOPWORDS.has(t));
 }
 
 function tokensMatch(a: string, b: string): boolean {

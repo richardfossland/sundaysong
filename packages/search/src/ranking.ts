@@ -13,33 +13,16 @@
  * (é→e, ü→u) AND the special letters å→a, ä→a, ø/ö→o, æ→ae, ß→ss to their base
  * forms, so a query typed without the right keyboard ("nar mitt oye") still
  * matches "Når mitt øye". Zero dependencies; offline.
+ *
+ * `foldNordic`/`tokenize` are the single source of truth and now live in
+ * @sundaysong/shared so the translation matcher folds identically; we re-export
+ * them here to keep the search package's public API stable.
  */
 
+import { foldNordic, tokenize } from "@sundaysong/shared";
 import type { SongDoc } from "./songDoc";
 
-/**
- * Fold a string for comparison: lowercase, strip combining accents, and apply
- * the Nordic letter transliterations people type when they lack the keys.
- * "Når mitt øye" and "naar mitt oeie" both fold to "naar mitt oeie"-ish forms
- * that share their tokens.
- */
-export function foldNordic(s: string): string {
-  return s
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "") // drop combining diacritics (é→e, ü→u)
-    .toLowerCase()
-    .replace(/ø/g, "o")
-    .replace(/æ/g, "ae")
-    .replace(/å/g, "a")
-    .replace(/ß/g, "ss");
-}
-
-/** Split a folded string into word tokens (letters + digits). */
-export function tokenize(s: string): string[] {
-  return foldNordic(s)
-    .split(/[^a-z0-9]+/)
-    .filter(Boolean);
-}
+export { foldNordic, tokenize };
 
 /**
  * Score a single candidate title against a query, 0..1, on a tiered ladder:

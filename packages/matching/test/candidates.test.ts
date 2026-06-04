@@ -71,6 +71,20 @@ describe("scoreTranslationCandidate", () => {
     expect(c.confidence).toBeGreaterThan(0); // but below propose on title alone
     expect(c.recommendation).toBe("reject");
   });
+
+  test("title tokens are Nordic-folded: keyboard/accent variants share tokens", () => {
+    // "Frälsare" (sv, ä) vs "Fralsare" (typed without the key) must fold to the
+    // same token, just like search does — this is the consolidation's whole point.
+    const a: MatchSong = { id: "a", canonical_title: "Frälsare", language: "sv" };
+    const b: MatchSong = { id: "b", canonical_title: "Fralsare", language: "en" };
+    const c = scoreTranslationCandidate(a, b);
+    expect(signalNames(c)).toContain("title_tokens");
+
+    // ø/æ/å fold too: "Når mitt øye" ≡ "Naar mitt oeie"-style spelling.
+    const na: MatchSong = { id: "na", canonical_title: "Når mitt øye", language: "nb" };
+    const nb: MatchSong = { id: "nb", canonical_title: "Naar mitt oye", language: "en" };
+    expect(signalNames(scoreTranslationCandidate(na, nb))).toContain("title_tokens");
+  });
 });
 
 describe("proposeCandidates", () => {
