@@ -116,9 +116,10 @@ export interface SongSearchStore {
   hydrateByIds(ids: string[]): Promise<SongWithRelations[]>;
   /**
    * The offline fallback: trigram title search returning candidate songs with
-   * their relations. The route re-ranks these with the Nordic-aware scorer.
+   * their relations, windowed by (limit, offset) so the route can page. The
+   * route re-ranks the returned candidates with the Nordic-aware scorer.
    */
-  fallbackSearch(q: string, limit: number): Promise<SongWithRelations[]>;
+  fallbackSearch(q: string, limit: number, offset?: number): Promise<SongWithRelations[]>;
 }
 
 /**
@@ -148,9 +149,9 @@ export function postgresSearchStore(): SongSearchStore {
       const songs = ids.map((id) => byId.get(id)).filter((s): s is Song => s != null);
       return hydrate(songs);
     },
-    async fallbackSearch(q, limit) {
+    async fallbackSearch(q, limit, offset = 0) {
       const sql = getSql();
-      return hydrate(await searchSongsByTitle(sql, q, limit));
+      return hydrate(await searchSongsByTitle(sql, q, limit, offset));
     },
   };
 }
@@ -211,7 +212,7 @@ routes.get("/search", zValidator("query", SongSearchQuerySchema), async (c) => {
     // re-rank the candidates with the Nordic-aware scorer so the offline path
     // still orders by real title relevance (folding å/ø/æ etc.) and emits
     // genuine 0..1 scores instead of a flat trigram order with score:1.
-    const candidates = await searchStore.fallbackSearch(q.q, q.page_size);
+    const candidates = await searchStore.fallbackSearch(q.q, q.page_size, q.page * q.page_size);
     const byId = new Map(candidates.map((h) => [h.song.id, h]));
     const docs = candidates.map((h) => songToSearchDoc(h.song, h.variants));
     const ranked = rankDocs(q.q, docs);

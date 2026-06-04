@@ -31,6 +31,15 @@ describe("noteToPc — international", () => {
     expect(noteToPc("X")).toBeNull();
     expect(noteToPc("Cmaj7")).toBeNull(); // a chord, not a bare note
   });
+
+  test("rejects German verbose is/es accidentals (German-only notation)", () => {
+    // In international notation "is"/"es" are not accidentals; a token like "Eis"
+    // is not a bare note and must not be silently re-rooted to F (pc 5).
+    expect(noteToPc("Eis")).toBeNull();
+    expect(noteToPc("Ees")).toBeNull();
+    expect(noteToPc("Cis")).toBeNull();
+    expect(noteToPc("Des")).toBeNull();
+  });
 });
 
 describe("noteToPc — german/nordic dialect", () => {

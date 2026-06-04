@@ -27,6 +27,14 @@ describe("syllableCount", () => {
   test("multi-word lines sum per word", () => {
     expect(syllableCount("Amazing grace how sweet")).toBe(3 + 1 + 1 + 1);
   });
+
+  test("line-ending punctuation does not change the silent-e estimate", () => {
+    // The English silent terminal-e discount must survive trailing punctuation:
+    // "grace," / "grace." should still count as 1 syllable, like "grace".
+    expect(syllableCount("grace,")).toBe(1);
+    expect(syllableCount("grace.")).toBe(1);
+    expect(syllableCount("Amazing grace,")).toBe(syllableCount("Amazing grace"));
+  });
 });
 
 describe("lyricLines", () => {

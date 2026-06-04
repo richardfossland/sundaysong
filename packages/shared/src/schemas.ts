@@ -4,11 +4,13 @@ export const SongSearchQuerySchema = z.object({
   q: z.string().min(1).max(200),
   language: z.string().optional(),
   themes: z.array(z.string()).max(8).optional(),
-  bpm_min: z.number().int().min(20).max(300).optional(),
-  bpm_max: z.number().int().min(20).max(300).optional(),
+  // These arrive as URL query strings, so coerce the numeric fields — `z.number()`
+  // would reject the string form and make the endpoint impossible to page/filter.
+  bpm_min: z.coerce.number().int().min(20).max(300).optional(),
+  bpm_max: z.coerce.number().int().min(20).max(300).optional(),
   key: z.string().max(8).optional(),
-  page: z.number().int().min(0).default(0),
-  page_size: z.number().int().min(1).max(100).default(20),
+  page: z.coerce.number().int().min(0).default(0),
+  page_size: z.coerce.number().int().min(1).max(100).default(20),
 });
 
 export const SemanticSearchSchema = z.object({

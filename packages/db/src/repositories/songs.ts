@@ -57,12 +57,12 @@ export async function getSong(sql: Executor, id: string): Promise<Song | null> {
 }
 
 /** Fuzzy title search using the pg_trgm similarity index (Phase 3.1 fallback). */
-export async function searchSongsByTitle(sql: Executor, q: string, limit = 20): Promise<Song[]> {
+export async function searchSongsByTitle(sql: Executor, q: string, limit = 20, offset = 0): Promise<Song[]> {
   return await sql<Song[]>`
     select * from song
     where canonical_title ilike ${"%" + q + "%"}
     order by similarity(canonical_title, ${q}) desc, popularity_score desc
-    limit ${limit}
+    limit ${limit} offset ${offset}
   `;
 }
 

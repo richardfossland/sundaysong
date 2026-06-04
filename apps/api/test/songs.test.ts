@@ -294,6 +294,60 @@ describe("GET /v1/songs/search — offline Postgres fallback re-ranking", () => 
     expect(json.total).toBe(2);
   });
 
+  // ── Pagination of the offline fallback (regression) ────────────────────────
+  // A store that paginates exactly like the Postgres seam would: it honors a
+  // (limit, offset) window over the candidate list. The route must thread the
+  // requested page into that window or page 2+ silently re-fetch page 1.
+  function paginatingSearchStore(catalog: Song[]): SongSearchStore & {
+    lastLimit: number;
+    lastOffset: number;
+  } {
+    const hydrate = (s: Song) => ({
+      song: s,
+      variants: [fakeVariant(s.id, s.canonical_title)],
+      translations: [] as never[],
+    });
+    const store = {
+      lastLimit: -1,
+      lastOffset: -1,
+      async hydrateByIds(ids: string[]) {
+        const byId = new Map(catalog.map((s) => [s.id, s]));
+        return ids.map((id) => byId.get(id)).filter((s): s is Song => s != null).map(hydrate);
+      },
+      // Signature the route must call so the page survives. We accept an offset.
+      async fallbackSearch(_q: string, limit: number, offset = 0) {
+        store.lastLimit = limit;
+        store.lastOffset = offset;
+        return catalog.slice(offset, offset + limit).map(hydrate);
+      },
+    };
+    return store;
+  }
+
+  test("threads the page into the offline fallback so page 2 returns distinct rows", async () => {
+    // 20 distinct matches; page_size 10 ⇒ page 0 = rows 0..9, page 1 = rows 10..19.
+    // All titles share the query token so every row matches the ranker.
+    const catalog = Array.from({ length: 20 }, (_, i) =>
+      fakeSong(`s${i}`, `Grace Song ${String(i).padStart(2, "0")}`, 20 - i),
+    );
+    const store = paginatingSearchStore(catalog);
+    const routes = createSongsRoutes({ searchStore: store });
+
+    const p0 = (await (await routes.request("/search?q=grace&page=0&page_size=10")).json()) as SearchResponse;
+    const p1 = (await (await routes.request("/search?q=grace&page=1&page_size=10")).json()) as SearchResponse;
+
+    expect(p0.engine).toBe("postgres_fallback");
+    expect(p1.engine).toBe("postgres_fallback");
+
+    const ids0 = p0.hits.map((h) => h.song.id);
+    const ids1 = p1.hits.map((h) => h.song.id);
+    // Page 2 must be a different window, not a re-fetch of page 1.
+    expect(ids0).not.toEqual(ids1);
+    expect(ids0.some((id) => ids1.includes(id))).toBe(false);
+    // The store actually received the page-1 offset.
+    expect(store.lastOffset).toBe(10);
+  });
+
   test("folds Nordic letters so an ASCII-typed query matches å/ø titles (Lovsang ↔ Lovsång)", async () => {
     // Query typed without the å key must match the å title at full strength.
     const catalog = [
