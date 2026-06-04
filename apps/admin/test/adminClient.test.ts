@@ -106,6 +106,25 @@ describe("AdminClient.moderateUpload", () => {
     expect(calls[0]!.url).toBe("http://api/v1/admin/uploads/a%2Fb/moderate");
     expect(calls[0]!.body).toEqual({ action: "reject", note: "duplicate of #42" });
   });
+
+  test("surfaces a 409 as an AdminApiError with .isConflict (optimistic-concurrency guard)", async () => {
+    const { fetchImpl } = mockFetch(() => ({
+      status: 409,
+      json: { error: "conflict", message: "This upload was changed by another moderator." },
+    }));
+    const client = new AdminClient({ baseUrl: "http://api", fetch: fetchImpl });
+
+    try {
+      await client.moderateUpload("u1", "approve");
+      throw new Error("should have thrown");
+    } catch (e) {
+      expect(e).toBeInstanceOf(AdminApiError);
+      const err = e as AdminApiError;
+      expect(err.status).toBe(409);
+      expect(err.code).toBe("conflict");
+      expect(err.isConflict).toBe(true);
+    }
+  });
 });
 
 describe("AdminClient.listSyncRuns", () => {
