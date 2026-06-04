@@ -2,10 +2,10 @@
 
 Worship song discovery + AI intelligence service — part of the **Sunday suite** alongside [SundayRec](https://github.com/richardfossland/sundayrec), SundayStage, and SundayPlan.
 
-> 🧪 **Status: v0.1.0-beta — testable.** Full catalog + search spine working:
+> 🧪 **Status: v0.2.0-beta — testable.** Full catalog + search spine working:
 > full-text **and** semantic search, cross-language translations, transposition,
 > CCLI/TONO licensing + CSV export, catalog-grounded recommendations, the public
-> REST API + TypeScript SDK, and the web app. ~166 tests; CI green on every push.
+> REST API + TypeScript SDK, and the web app. ~590 tests; CI green on every push.
 
 ## Quick start (test the release)
 
@@ -54,7 +54,7 @@ sundaysong/
 │   ├── admin/            Internal admin tools (Phase 8)
 │   └── workers/          Background jobs: ingestion, embedding (Phase 2-3)
 ├── packages/
-│   ├── sdk/              Public TypeScript SDK (@sunday/song-sdk)
+│   ├── sdk/              Public TypeScript SDK (@sundaysong/sdk)
 │   ├── shared/           Domain types + Zod schemas
 │   ├── db/               Postgres migrations
 │   ├── search/           Meilisearch client + index defs (Phase 3.1)
@@ -91,7 +91,7 @@ pnpm dev
   - `usage_log` with `was_streamed` flag → CCLI + TONO reporting
   - `nordic_metadata` JSONB for salmebok number + Norwegian PD status
 - Shared TS types + Zod schemas (`@sundaysong/shared`)
-- Public SDK contract (`@sunday/song-sdk`) — `SundaySong` class with `songs.search`, `songs.semanticSearch`, `songs.get`, `recommend`, `usage.log`, `licensing.report`
+- Public SDK contract (`@sundaysong/sdk`) — `SundaySong` class with `songs.search`, `songs.semanticSearch`, `songs.get`, `recommend`, `usage.log`, `licensing.report`
 - Hono API skeleton with stub endpoints — boots on Bun, validates inputs with Zod, returns 501-flagged stubs noting which phase wires each
 
 ## Strategic moat

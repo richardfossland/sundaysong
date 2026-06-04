@@ -2,7 +2,11 @@
  * Repository integration tests — run against a throwaway `sundaysong_test`
  * database created and dropped per run, so they never touch dev/seed data.
  *
- * REQUIRES a running Postgres (`pnpm db:up`). Without it, beforeAll fails fast.
+ * REQUIRES a running Postgres (`pnpm db:up`). Offline (no Postgres reachable)
+ * the whole suite is skipped with a clear message instead of throwing raw
+ * connection stacks, so `pnpm -r test` stays green for local dev without
+ * Docker. CI provides the service, so the tests run there. Set
+ * SUNDAYSONG_REQUIRE_SERVICES=1 to fail (not skip) when Postgres is unreachable.
  */
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
@@ -36,7 +40,28 @@ const testUrl = withDb("sundaysong_test");
 let admin: Sql;
 let sql: Sql;
 
+// Probe Postgres once: a reachable server is required for these live tests.
+const reachable = await (async () => {
+  const probe = createSql(adminUrl);
+  try {
+    await probe`select 1`;
+    return true;
+  } catch {
+    return false;
+  } finally {
+    await probe.end().catch(() => {});
+  }
+})();
+
+if (!reachable) {
+  if (process.env.SUNDAYSONG_REQUIRE_SERVICES === "1") {
+    throw new Error(`Postgres not reachable at ${adminUrl} but SUNDAYSONG_REQUIRE_SERVICES=1`);
+  }
+  console.warn(`[db] Postgres not reachable at ${adminUrl} — skipping live repository tests (run \`pnpm db:up\`).`);
+}
+
 beforeAll(async () => {
+  if (!reachable) return;
   admin = createSql(adminUrl);
   await admin`drop database if exists sundaysong_test with (force)`;
   await admin`create database sundaysong_test`;
@@ -47,18 +72,20 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
+  if (!reachable) return;
   await sql?.end();
   await admin`drop database if exists sundaysong_test with (force)`;
   await admin.end();
 });
 
 beforeEach(async () => {
+  if (!reachable) return;
   await sql`truncate source, song, song_variant, usage_log, translation, person, upload restart identity cascade`;
 });
 
 const CHURCH = "00000000-0000-0000-0000-0000000000aa";
 
-describe("sources", () => {
+describe.skipIf(!reachable)("sources", () => {
   test("upsert is idempotent on name", async () => {
     const a = await upsertSource(sql, { name: "hymnary", kind: "api" });
     const b = await upsertSource(sql, { name: "hymnary", kind: "api" });
@@ -67,7 +94,7 @@ describe("sources", () => {
   });
 });
 
-describe("songs", () => {
+describe.skipIf(!reachable)("songs", () => {
   test("insert + get round-trips arrays and jsonb", async () => {
     const inserted = await insertSong(sql, {
       canonical_title: "Stor er du Gud",
@@ -92,7 +119,7 @@ describe("songs", () => {
   });
 });
 
-describe("upsertSongWithVariant (connector idempotency anchor)", () => {
+describe.skipIf(!reachable)("upsertSongWithVariant (connector idempotency anchor)", () => {
   const payload = {
     source_name: "hymnary",
     source_external_id: "amazing-grace",
@@ -115,7 +142,7 @@ describe("upsertSongWithVariant (connector idempotency anchor)", () => {
   });
 });
 
-describe("persons + lyricist linking", () => {
+describe.skipIf(!reachable)("persons + lyricist linking", () => {
   test("upsertPerson dedupes on display name", async () => {
     const a = await upsertPerson(sql, "Hans Adolph Brorson");
     const b = await upsertPerson(sql, "Hans Adolph Brorson");
@@ -154,7 +181,7 @@ describe("persons + lyricist linking", () => {
   });
 });
 
-describe("translations (cross-language linking)", () => {
+describe.skipIf(!reachable)("translations (cross-language linking)", () => {
   async function pair() {
     const en = await insertSong(sql, { canonical_title: "How Great Is Our God", original_language: "en" });
     const no = await insertSong(sql, { canonical_title: "Stor er du Gud", original_language: "no" });
@@ -191,7 +218,7 @@ describe("translations (cross-language linking)", () => {
   });
 });
 
-describe("usage_log", () => {
+describe.skipIf(!reachable)("usage_log", () => {
   test("logUsage dedupes on idempotency_key", async () => {
     const song = await insertSong(sql, { canonical_title: "X", original_language: "en" });
     const first = await logUsage(sql, { church_id: CHURCH, song_id: song.id, service_date: "2026-05-03", idempotency_key: "k1" });
@@ -213,7 +240,7 @@ describe("usage_log", () => {
   });
 });
 
-describe("uploads (moderation envelope — Phase 8)", () => {
+describe.skipIf(!reachable)("uploads (moderation envelope — Phase 8)", () => {
   async function seedSong(title = "Velsignet er den dag") {
     return await insertSong(sql, { canonical_title: title, original_language: "no", copyright_status: "public_domain" });
   }

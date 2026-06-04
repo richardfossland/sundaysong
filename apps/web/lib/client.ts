@@ -1,4 +1,4 @@
-import { SundaySong } from "@sunday/song-sdk";
+import { SundaySong } from "@sundaysong/sdk";
 
 /**
  * Shared SDK instance — the web app eats its own dog food, calling the public

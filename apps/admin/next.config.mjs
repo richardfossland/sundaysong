@@ -4,7 +4,7 @@ import { join } from "node:path";
 const nextConfig = {
   reactStrictMode: true,
   output: "standalone",
-  transpilePackages: ["@sunday/song-sdk", "@sundaysong/shared"],
+  transpilePackages: ["@sundaysong/sdk", "@sundaysong/shared"],
   outputFileTracingRoot: join(import.meta.dirname, "..", ".."),
 };
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { TransposeResult } from "@sunday/song-sdk";
+import type { TransposeResult } from "@sundaysong/sdk";
 import { api } from "@/lib/client";
 
 const MAJOR = ["C", "Db", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"];

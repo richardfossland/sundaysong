@@ -1,5 +1,5 @@
 import Link from "next/link";
-import type { RecommendOutput } from "@sunday/song-sdk";
+import type { RecommendOutput } from "@sundaysong/sdk";
 import { arcSummary, formatDuration, keyFlow, type Arc } from "@/lib/recommendations";
 
 /**

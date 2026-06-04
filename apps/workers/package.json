@@ -8,7 +8,6 @@
     "index":     "bun run src/index-songs.ts",
     "embed":     "bun run src/embed-songs.ts",
     "typecheck": "tsc --noEmit",
-    "lint":      "echo lint placeholder",
     "test":      "bun test"
   },
   "dependencies": {

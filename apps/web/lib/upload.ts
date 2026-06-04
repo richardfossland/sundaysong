@@ -12,7 +12,7 @@
  * without the contributor asserting they have the right to share it.
  */
 
-import type { SongUploadInput } from "@sunday/song-sdk";
+import type { SongUploadInput } from "@sundaysong/sdk";
 
 export type CopyrightStatus = NonNullable<SongUploadInput["copyright_status"]>;
 

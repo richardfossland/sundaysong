@@ -1,5 +1,5 @@
 import Link from "next/link";
-import type { SearchHit } from "@sunday/song-sdk";
+import type { SearchHit } from "@sundaysong/sdk";
 import { api } from "@/lib/client";
 
 // The API is only reachable at request time (local in dev, Fly in prod), so we

@@ -8,11 +8,10 @@
     "build":     "next build",
     "start":     "next start -p 3002",
     "typecheck": "tsc --noEmit",
-    "lint":      "echo lint placeholder",
     "test":      "bun test"
   },
   "dependencies": {
-    "@sunday/song-sdk": "workspace:*",
+    "@sundaysong/sdk": "workspace:*",
     "@sundaysong/shared": "workspace:*",
     "next": "^15.1.0",
     "react": "^19.0.0",
