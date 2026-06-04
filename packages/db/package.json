@@ -10,7 +10,6 @@
     "seed":      "bun run src/seed.ts",
     "check":     "bun run src/check.ts",
     "typecheck": "tsc --noEmit",
-    "lint":      "echo lint placeholder",
     "test":      "bun test"
   },
   "dependencies": {
