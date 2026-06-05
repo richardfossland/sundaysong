@@ -19,6 +19,11 @@ interface Window {
   resetAt: number;
 }
 
+/** Hard cap on tracked windows. A caller key is cheap to spoof (rotate
+ *  X-Forwarded-For / bearer prefix), so the map MUST stay bounded even under a
+ *  flood of distinct keys inside one window — otherwise it exhausts memory. */
+const MAX_WINDOWS = 10_000;
+
 export class RateLimiter {
   private readonly windows = new Map<string, Window>();
   constructor(private readonly limit: number, private readonly windowMs: number) {}
@@ -26,9 +31,9 @@ export class RateLimiter {
   take(key: string, now: number): RateDecision {
     let w = this.windows.get(key);
     if (!w || now >= w.resetAt) {
+      this.evictIfFull(now);
       w = { count: 0, resetAt: now + this.windowMs };
       this.windows.set(key, w);
-      this.sweep(now);
     }
     if (w.count >= this.limit) {
       return { ok: false, remaining: 0, retryAfterMs: w.resetAt - now };
@@ -37,10 +42,32 @@ export class RateLimiter {
     return { ok: true, remaining: this.limit - w.count, retryAfterMs: 0 };
   }
 
-  /** Drop expired windows opportunistically so the map can't grow forever. */
-  private sweep(now: number): void {
-    if (this.windows.size < 1000) return;
-    for (const [k, w] of this.windows) if (now >= w.resetAt) this.windows.delete(k);
+  /** Keep the map bounded before inserting a new window. Reclaims expired
+   *  windows and, under a same-window flood, drops single-hit windows (the
+   *  cheap, likely-spoofed callers) first — so a key with real activity
+   *  (count > 1) survives the flood and stays rate-limited. */
+  private evictIfFull(now: number): void {
+    if (this.windows.size < MAX_WINDOWS) return;
+    // Evict down to a target below the cap so this runs rarely, not per-insert.
+    const target = MAX_WINDOWS - (MAX_WINDOWS >> 3);
+    for (const [k, w] of this.windows) {
+      if (now >= w.resetAt || w.count <= 1) {
+        this.windows.delete(k);
+        if (this.windows.size <= target) return;
+      }
+    }
+    // Pathological: every window has real activity — drop oldest-inserted to
+    // stay strictly bounded rather than grow without limit.
+    while (this.windows.size >= MAX_WINDOWS) {
+      const first = this.windows.keys().next();
+      if (first.done) break;
+      this.windows.delete(first.value);
+    }
+  }
+
+  /** Live window count — exposed for memory-safety assertions in tests. */
+  size(): number {
+    return this.windows.size;
   }
 }
 
