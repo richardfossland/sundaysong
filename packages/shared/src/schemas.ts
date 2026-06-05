@@ -1,17 +1,34 @@
 import { z } from "zod";
 
-export const SongSearchQuerySchema = z.object({
-  q: z.string().min(1).max(200),
-  language: z.string().optional(),
-  themes: z.array(z.string()).max(8).optional(),
-  // These arrive as URL query strings, so coerce the numeric fields — `z.number()`
-  // would reject the string form and make the endpoint impossible to page/filter.
-  bpm_min: z.coerce.number().int().min(20).max(300).optional(),
-  bpm_max: z.coerce.number().int().min(20).max(300).optional(),
-  key: z.string().max(8).optional(),
-  page: z.coerce.number().int().min(0).default(0),
-  page_size: z.coerce.number().int().min(1).max(100).default(20),
-});
+/**
+ * Hard ceiling on the search offset (`page * page_size`). Matches Meilisearch's
+ * own `offset` cap: requests past it error on the Meili path and become deep
+ * `OFFSET` scans on the Postgres fallback — wasted work an unauthenticated
+ * caller could trigger with a single huge `page`. Bounding it in the schema
+ * rejects such windows with a 400 before any engine is touched.
+ */
+export const SEARCH_MAX_OFFSET = 10_000;
+
+export const SongSearchQuerySchema = z
+  .object({
+    q: z.string().min(1).max(200),
+    language: z.string().optional(),
+    themes: z.array(z.string()).max(8).optional(),
+    // These arrive as URL query strings, so coerce the numeric fields — `z.number()`
+    // would reject the string form and make the endpoint impossible to page/filter.
+    bpm_min: z.coerce.number().int().min(20).max(300).optional(),
+    bpm_max: z.coerce.number().int().min(20).max(300).optional(),
+    key: z.string().max(8).optional(),
+    page: z.coerce.number().int().min(0).default(0),
+    page_size: z.coerce.number().int().min(1).max(100).default(20),
+  })
+  // Bound the deep-pagination offset so `page * page_size` can never exceed the
+  // engine cap (DoS guard). `page_size` is already ≤ 100; without this a single
+  // huge `page` asks for an unbounded offset.
+  .refine((d) => d.page * d.page_size <= SEARCH_MAX_OFFSET, {
+    message: `page * page_size must not exceed ${SEARCH_MAX_OFFSET}`,
+    path: ["page"],
+  });
 
 export const SemanticSearchSchema = z.object({
   query: z.string().min(1).max(500),
