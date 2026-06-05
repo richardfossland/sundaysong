@@ -72,6 +72,10 @@ function fakeWorld() {
       u.moderator_note = note ?? null;
       return 1;
     },
+    async recordAudit() {
+      // The upload→moderation flow tested here never moderates, so the trail is
+      // a no-op stub that just satisfies the AdminStore contract.
+    },
     async listSyncRuns() {
       return [];
     },
@@ -388,6 +392,18 @@ describe("GET /v1/songs/search — offline Postgres fallback re-ranking", () => 
     expect(p2.total).toBe(25);
     // The last page still returns only its 5 rows, but `total` is unchanged.
     expect(p2.hits).toHaveLength(5);
+  });
+
+  test("rejects a deep-pagination DoS window with 400 before touching any engine", async () => {
+    // A single request asking for offset 1_000_000 * 100 = 100_000_000 would
+    // blow past Meili's offset cap / become a deep Postgres OFFSET scan. The
+    // schema bound must reject it at the door — the store is never called.
+    const store = paginatingSearchStore([fakeSong("a", "Grace")]);
+    const routes = createSongsRoutes({ searchStore: store });
+    const res = await routes.request("/search?q=grace&page=1000000&page_size=100");
+    expect(res.status).toBe(400);
+    // The over-cap request never reached the store.
+    expect(store.lastOffset).toBe(-1);
   });
 
   test("folds Nordic letters so an ASCII-typed query matches å/ø titles (Lovsang ↔ Lovsång)", async () => {
