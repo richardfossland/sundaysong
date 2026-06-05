@@ -110,7 +110,11 @@ h1, h2, h3 {
   font-weight: 600;
   font-size: 1.5rem;
   letter-spacing: -0.02em;
+  display: inline-flex;
+  align-items: center;
+  gap: 11px;
 }
+.masthead .wordmark-logo { border-radius: 22%; display: block; box-shadow: 0 2px 8px -3px rgba(27, 22, 18, 0.5); }
 .masthead .wordmark span { color: var(--ember); }
 .masthead nav {
   display: flex;
@@ -121,7 +125,10 @@ h1, h2, h3 {
   text-transform: uppercase;
   color: var(--ink-soft);
 }
+.masthead nav a { display: inline-flex; align-items: center; gap: 7px; }
+.masthead nav a svg { width: 14px; height: 14px; opacity: 0.66; stroke-width: 1.75; }
 .masthead nav a:hover { color: var(--ember); }
+.masthead nav a:hover svg { opacity: 1; }
 
 /* ── Hero ─────────────────────────────────────────────────────────────────── */
 

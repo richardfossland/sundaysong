@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Clock, Music, KeyRound } from "lucide-react";
 import type { RecommendOutput } from "@sundaysong/sdk";
 import { arcSummary, formatDuration, keyFlow, type Arc } from "@/lib/recommendations";
 
@@ -22,11 +23,11 @@ export function SetDisplay({ out, arc }: { out: RecommendOutput; arc: "" | Arc }
 
       <div className="row" style={{ marginTop: 12, gap: 10 }}>
         <span className="pill na">
-          <span className="dot" /> {formatDuration(out.total_minutes_estimate)}
+          <Clock size={14} aria-hidden strokeWidth={1.75} /> {formatDuration(out.total_minutes_estimate)}
         </span>
         {keys.length > 0 && (
           <span className="pill na" style={{ fontFamily: "var(--font-mono)" }}>
-            <span className="dot" /> {keys.join(" → ")}
+            <Music size={14} aria-hidden strokeWidth={1.75} /> {keys.join(" → ")}
           </span>
         )}
       </div>
@@ -59,8 +60,11 @@ export function SetDisplay({ out, arc }: { out: RecommendOutput; arc: "" | Arc }
                       <span className="year-tag">{pick.song.year_first_published}</span>
                     )}
                     {pick.suggested_key && (
-                      <span className="lang-tag" style={{ fontFamily: "var(--font-mono)" }}>
-                        key {pick.suggested_key}
+                      <span
+                        className="lang-tag"
+                        style={{ fontFamily: "var(--font-mono)", display: "inline-flex", alignItems: "center", gap: 4 }}
+                      >
+                        <KeyRound size={11} aria-hidden strokeWidth={2} /> {pick.suggested_key}
                       </span>
                     )}
                   </div>

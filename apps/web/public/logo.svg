@@ -1,0 +1,18 @@
+<svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#A8392E"></stop><stop offset="1" stop-color="#4E1820"></stop></linearGradient>
+    <radialGradient id="glow" cx="0.26" cy="0.2" r="0.95"><stop offset="0" stop-color="#ffffff" stop-opacity="0.12"></stop><stop offset="0.55" stop-color="#ffffff" stop-opacity="0"></stop></radialGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#F2D58A"></stop><stop offset="1" stop-color="#EBB84B"></stop></linearGradient>
+    <clipPath id="clip"><rect width="1024" height="1024" rx="228"></rect></clipPath>
+  </defs>
+  <g clip-path="url(#clip)">
+    <rect width="1024" height="1024" fill="url(#bg)"></rect>
+    <rect width="1024" height="1024" fill="url(#glow)"></rect>
+    <!-- Open hymnal — thin gold outline -->
+    <path d="M 512 590 C 432 562 360 560 300 574 L 300 686 C 360 672 432 672 512 702 C 592 672 664 672 724 686 L 724 574 C 664 560 592 562 512 590 Z" fill="none" stroke="#EBB84B" stroke-width="20" stroke-linejoin="round"></path>
+    <path d="M 512 590 L 512 702" stroke="#EBB84B" stroke-width="20" stroke-linecap="round"></path>
+    <!-- Shared gold cross (canonical proportions, scaled) -->
+    <rect x="490.0" y="250.0" width="44.0" height="288.2" rx="5.85" fill="url(#gold)"></rect>
+    <rect x="420.48" y="329.55" width="183.04" height="44.0" rx="5.85" fill="url(#gold)"></rect>
+  </g>
+</svg>

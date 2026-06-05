@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
+import { Search, Sparkles, Music, Scale, Library, Upload, Info } from "lucide-react";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -21,15 +22,19 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       </head>
       <body>
         <header className="masthead">
-          <a className="wordmark" href="/">Sunday<span>Song</span></a>
+          <a className="wordmark" href="/">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/logo.svg" alt="" width={30} height={30} className="wordmark-logo" />
+            Sunday<span>Song</span>
+          </a>
           <nav>
-            <a href="/songs">Search</a>
-            <a href="/recommendations">Recommend</a>
-            <a href="/#transpose">Transpose</a>
-            <a href="/#licensing">Licensing</a>
-            <a href="/sources">Sources</a>
-            <a href="/upload">Contribute</a>
-            <a href="/about">About</a>
+            <a href="/songs"><Search aria-hidden /> Search</a>
+            <a href="/recommendations"><Sparkles aria-hidden /> Recommend</a>
+            <a href="/#transpose"><Music aria-hidden /> Transpose</a>
+            <a href="/#licensing"><Scale aria-hidden /> Licensing</a>
+            <a href="/sources"><Library aria-hidden /> Sources</a>
+            <a href="/upload"><Upload aria-hidden /> Contribute</a>
+            <a href="/about"><Info aria-hidden /> About</a>
           </nav>
         </header>
         <main className="page">{children}</main>

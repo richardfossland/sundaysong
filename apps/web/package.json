@@ -4,16 +4,17 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev":       "next dev -p 3000",
-    "build":     "next build",
-    "start":     "next start -p 3000",
+    "dev": "next dev -p 3000",
+    "build": "next build",
+    "start": "next start -p 3000",
     "typecheck": "tsc --noEmit",
-    "test":      "bun test ./test"
+    "test": "bun test ./test"
   },
   "dependencies": {
     "@sundaysong/music": "workspace:*",
     "@sundaysong/sdk": "workspace:*",
     "@sundaysong/shared": "workspace:*",
+    "lucide-react": "^1.17.0",
     "next": "^15.1.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"

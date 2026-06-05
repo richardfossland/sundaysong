@@ -1,41 +1,24 @@
-import { RecommendationBuilder } from "@/components/RecommendationBuilder";
+import { RecommendWorkspace } from "@/components/RecommendWorkspace";
 
-// The builder calls the API at request time from the browser; nothing to
+// The builders call the API at request time from the browser; nothing to
 // pre-render — keep the route dynamic like /songs.
 export const dynamic = "force-dynamic";
 
 export const metadata = {
   title: "Recommendations — SundaySong",
   description:
-    "Ask SundaySong what to sing next Sunday — by theme, scripture or the song you want to flow on from. Ranked picks with explanations, key-flow, energy arc and a duration estimate.",
+    "Ask SundaySong what to sing next Sunday — by theme, scripture or the song you want to flow on from, a whole service, a liturgical season, or the key-flow explained. Ranked picks with reasoning.",
 };
 
-export default function RecommendationsPage() {
+export default async function RecommendationsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ mode?: string }>;
+}) {
+  const { mode } = await searchParams;
   return (
     <section className="section shell">
-      <div className="section-head">
-        <span className="no">♪</span>
-        <h2>What should we sing?</h2>
-        <p className="sub">
-          Tell the planner the theme, scripture or moment — or a song to flow on from — and get a
-          ranked set with explanations, key-flow and a duration estimate.
-        </p>
-      </div>
-
-      <RecommendationBuilder />
-
-      <p className="muted" style={{ fontSize: "0.85rem", marginTop: 16 }}>
-        Suggestions are grounded in the real catalog. Sunday Pro adds AI re-ranking on top of the
-        music-theory key-flow and energy-arc sequencing.
-      </p>
-
-      <p className="muted" style={{ fontSize: "0.85rem", marginTop: 8 }}>
-        Want a whole service in one go? <a href="/recommendations/set">Build a service</a> — an
-        ordered set with key-flow, tempo and mode-balance constraints. Or find{" "}
-        <a href="/recommendations/after">what flows next</a> from a song (or see{" "}
-        <a href="/recommendations/flow">the key-flow explained</a> on the circle of fifths), or songs
-        for <a href="/recommendations/season">a liturgical season</a>.
-      </p>
+      <RecommendWorkspace initialMode={mode} />
     </section>
   );
 }
