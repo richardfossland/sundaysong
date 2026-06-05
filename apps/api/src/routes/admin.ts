@@ -41,7 +41,7 @@ import {
 import { getSql } from "@sundaysong/db";
 import type { Executor } from "@sundaysong/db";
 
-import { createVerifier, requireAuth, type Verifier } from "../middleware/auth";
+import { createVerifier, getClaims, requireAuth, type Verifier } from "../middleware/auth";
 
 // ── DI: the store the routes hydrate from ────────────────────────────────────
 
@@ -55,6 +55,24 @@ export interface SourceSyncRun {
   rows_in: number;
   rows_upserted: number;
   errors: string[];
+}
+
+/**
+ * One row of the moderation audit trail — an append-only record of WHO did WHAT
+ * to an upload and WHEN. Written on every successful moderation so a rejection
+ * or approval can always be traced back to a moderator + timestamp (the scalar
+ * `upload.moderator_note` only keeps the latest note, not the history).
+ */
+export interface ModerationAuditEntry {
+  upload_id: string;
+  /** The Sunday account id (JWT `sub`) of the moderator, or "anonymous" in dev. */
+  moderator: string;
+  action: ModerationAction;
+  /** The status the upload landed in. */
+  status: UploadStatus;
+  note?: string;
+  /** ISO-8601 timestamp of the decision. */
+  at: string;
 }
 
 /** Search-volume + coverage analytics for the beta dashboard. */
@@ -89,6 +107,12 @@ export interface AdminStore {
     status: UploadStatus,
     note?: string,
   ): Promise<number>;
+  /**
+   * Append one row to the moderation audit trail. Called only AFTER a moderation
+   * decision actually lands (a successful `saveModeration`), so the trail never
+   * records a decision that didn't take effect.
+   */
+  recordAudit(entry: ModerationAuditEntry): Promise<void>;
   /** Connector sync history, newest first. */
   listSyncRuns(): Promise<SourceSyncRun[]>;
   /** Aggregated search-volume + coverage-gap analytics. */
@@ -178,6 +202,15 @@ export function postgresAdminStore(sqlOverride?: Executor): AdminStore {
          where id = ${id} and status = ${expectedStatus}
          returning id`;
       return rows.length;
+    },
+
+    async recordAudit(entry) {
+      const sql = exec();
+      // INFRA-UNVERIFIED: targets the 0005 `moderation_audit` table (append-only).
+      await sql`
+        insert into moderation_audit (upload_id, moderator, action, status, note, created_at)
+        values (${entry.upload_id}, ${entry.moderator}, ${entry.action},
+                ${entry.status}, ${entry.note ?? null}, ${entry.at})`;
     },
 
     async listSyncRuns() {
@@ -341,6 +374,18 @@ export function createAdminRoutes(deps: AdminRoutesDeps): Hono {
         409,
       );
     }
+
+    // The decision landed → append it to the audit trail. The moderator is the
+    // authenticated subject (or "anonymous" when auth isn't configured / dev).
+    await deps.store.recordAudit({
+      upload_id: id,
+      moderator: getClaims(c)?.sub ?? "anonymous",
+      action,
+      status: result.status,
+      ...(note !== undefined ? { note } : {}),
+      at: new Date().toISOString(),
+    });
+
     return c.json({ upload_id: id, status: result.status });
   });
 

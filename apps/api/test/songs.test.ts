@@ -72,6 +72,10 @@ function fakeWorld() {
       u.moderator_note = note ?? null;
       return 1;
     },
+    async recordAudit() {
+      // The upload→moderation flow tested here never moderates, so the trail is
+      // a no-op stub that just satisfies the AdminStore contract.
+    },
     async listSyncRuns() {
       return [];
     },

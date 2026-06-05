@@ -24,6 +24,7 @@ import {
   type AdminStore,
   type SourceSyncRun,
   type AnalyticsSummary,
+  type ModerationAuditEntry,
 } from "../src/routes/admin";
 import { createVerifier, requireAuth } from "../src/middleware/auth";
 
@@ -64,6 +65,7 @@ interface FakeStoreOptions {
 function fakeStore(opts: FakeStoreOptions = {}) {
   const uploads = new Map((opts.uploads ?? []).map((u) => [u.id, { ...u }]));
   const saved: Array<{ id: string; expectedStatus: UploadStatus; status: UploadStatus; note?: string }> = [];
+  const audits: ModerationAuditEntry[] = [];
   const store: AdminStore = {
     async listUploads(status) {
       const all = [...uploads.values()];
@@ -82,6 +84,9 @@ function fakeStore(opts: FakeStoreOptions = {}) {
       u.moderator_note = note ?? null;
       return 1;
     },
+    async recordAudit(entry) {
+      audits.push(entry);
+    },
     async listSyncRuns() {
       return opts.runs ?? [];
     },
@@ -91,7 +96,7 @@ function fakeStore(opts: FakeStoreOptions = {}) {
       );
     },
   };
-  return { store, saved };
+  return { store, saved, audits };
 }
 
 // ── Local RS256 keyset for the auth-guard tests ──────────────────────────────
@@ -217,6 +222,56 @@ describe("POST /v1/admin/uploads/:id/moderate", () => {
 
     expect(saved).toHaveLength(1);
     expect(saved[0]).toEqual({ id: "u1", expectedStatus: "pending", status: "approved", note: undefined });
+  });
+
+  test("records an audit row on a successful moderation (the decision trail)", async () => {
+    const { store, audits } = fakeStore({ uploads: [upload({ id: "u1", status: "pending" })] });
+    const res = await moderate(createAdminRoutes({ store }), "u1", { action: "reject", note: "duplicate of existing song" });
+
+    expect(res.status).toBe(200);
+    // Exactly one audit entry, capturing who/what/when of the decision.
+    expect(audits).toHaveLength(1);
+    expect(audits[0]).toMatchObject({
+      upload_id: "u1",
+      action: "reject",
+      status: "rejected",
+      note: "duplicate of existing song",
+    });
+    // The moderator identity is captured (anonymous when auth isn't configured).
+    expect(typeof audits[0]!.moderator).toBe("string");
+    // A timestamp is stamped.
+    expect(typeof audits[0]!.at).toBe("string");
+    expect(Number.isNaN(Date.parse(audits[0]!.at))).toBe(false);
+  });
+
+  test("captures the authenticated moderator's id in the audit row", async () => {
+    const { store, audits } = fakeStore({ uploads: [upload({ id: "u1", status: "pending" })] });
+    const routes = createAdminRoutes({
+      store,
+      auth: requireAuth(createVerifier({ keys: jwks, audience: AUD, issuer: ISS })),
+    });
+    const token = await signAdmin();
+    const res = await moderate(routes, "u1", { action: "approve" }, token);
+
+    expect(res.status).toBe(200);
+    expect(audits).toHaveLength(1);
+    // signAdmin() subjects the token to `admin_1`.
+    expect(audits[0]!.moderator).toBe("admin_1");
+  });
+
+  test("does NOT record an audit row on an illegal transition (422)", async () => {
+    const { store, audits } = fakeStore({ uploads: [upload({ id: "u1", status: "approved" })] });
+    const res = await moderate(createAdminRoutes({ store }), "u1", { action: "approve" });
+    expect(res.status).toBe(422);
+    expect(audits).toHaveLength(0);
+  });
+
+  test("does NOT record an audit row on a lost-update conflict (409)", async () => {
+    const { store, audits } = fakeStore({ uploads: [upload({ id: "u1", status: "pending" })], conflict: true });
+    const res = await moderate(createAdminRoutes({ store }), "u1", { action: "approve" });
+    expect(res.status).toBe(409);
+    // The decision didn't land, so nothing must be written to the trail.
+    expect(audits).toHaveLength(0);
   });
 
   test("request_changes persists the moderator note", async () => {
