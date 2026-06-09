@@ -5,11 +5,19 @@
  * working with no token, so it is NOT installed globally — only church-scoped
  * routes (usage, licensing) mount `requireAuth` + `requireChurch`.
  *
- * The token + claim shape mirror the not-yet-published `@sunday/auth-client`:
+ * The token + claim shape mirror `@sunday/auth-client`:
  *   - `sub`         the Sunday account id (subject)
  *   - `church_ids`  the churches this account may act for
- *   - `app_grants`  which Sunday products / scopes the account is granted
- * mirrors sunday-contracts; converge once published.
+ *   - `app_grants`  per-church enabled app grants, `{ "<church_id>": ["stage","rec"] }`
+ *
+ * `app_grants` is the EXACT shape the SundayPlan `custom_access_token_hook`
+ * (migration 0010) stamps — a per-church map, not a flat list (an earlier flat
+ * `string[]` reading silently dropped every grant). Church scope is still
+ * enforced via `church_ids` (`requireChurch`); `app_grants` is available for
+ * future per-app gating via `hasAppGrant`. The remaining convergence step —
+ * physically importing `@sunday/auth-client` instead of duplicating this here —
+ * waits on publishing the sunday-platform git tag (it crosses a jose v5/v6
+ * boundary); the claim SHAPE now matches the canonical package exactly.
  *
  * The verifier is a FACTORY that takes its key set injected, so unit tests pass
  * a locally generated RS256 key set (`createLocalJWKSet`) and never touch the
@@ -26,8 +34,8 @@ export interface SundayClaims {
   sub: string;
   /** Churches the account may act for. Empty array if the claim is absent. */
   church_ids: string[];
-  /** Granted products / scopes, e.g. ["song:read", "stage"]. */
-  app_grants: string[];
+  /** Per-church enabled app grants, e.g. `{ "<church_id>": ["stage","rec"] }`. */
+  app_grants: Record<string, string[]>;
   /** The raw verified payload, for callers that need extra claims. */
   raw: JWTPayload;
 }
@@ -63,6 +71,24 @@ function asStringArray(v: unknown): string[] {
 }
 
 /**
+ * Normalise the `app_grants` claim into a per-church map, defensively: a missing
+ * or malformed claim becomes `{}`, non-array church entries are dropped, and
+ * non-string app entries within a church are filtered out. Mirrors the
+ * `extractSundayClaims` coercion in `@sunday/auth-client`.
+ */
+function asGrantMap(v: unknown): Record<string, string[]> {
+  const out: Record<string, string[]> = {};
+  if (v && typeof v === "object" && !Array.isArray(v)) {
+    for (const [church, apps] of Object.entries(v as Record<string, unknown>)) {
+      if (Array.isArray(apps)) {
+        out[church] = apps.filter((x): x is string => typeof x === "string");
+      }
+    }
+  }
+  return out;
+}
+
+/**
  * Build a verifier from an injected key set. RS256 only (the Sunday platform
  * signs with RSA), so a token signed with any other algorithm is rejected
  * rather than silently trusted. Pure aside from the crypto verify — no I/O of
@@ -83,7 +109,7 @@ export function createVerifier(opts: VerifierOptions): Verifier {
     return {
       sub: payload.sub,
       church_ids: asStringArray((payload as Record<string, unknown>).church_ids),
-      app_grants: asStringArray((payload as Record<string, unknown>).app_grants),
+      app_grants: asGrantMap((payload as Record<string, unknown>).app_grants),
       raw: payload,
     };
   };

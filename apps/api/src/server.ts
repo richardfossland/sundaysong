@@ -25,6 +25,7 @@ import { recommendAfterRoutes } from "./routes/recommendAfter";
 import { recommendSeasonRoutes } from "./routes/recommendSeason";
 import { recommendSetRoutes } from "./routes/recommendSet";
 import { adminRoutes } from "./routes/admin";
+import { accountRoutes } from "./routes/account";
 import { rateLimit } from "./middleware/rateLimit";
 
 const app = new Hono();
@@ -84,6 +85,7 @@ app.route("/v1/transpose",    transposeRoutes);
 app.route("/v1/matching",     matchingRoutes);
 app.route("/v1/sources",      sourcesRoutes);
 app.route("/v1/admin",        adminRoutes); // moderation + analytics (Phase 8/9), admin-scoped
+app.route("/v1/account",      accountRoutes); // Sunday Account SSO whoami (church-scoped pilot)
 
 app.notFound((c) => c.json({ error: "not_found", message: "No such endpoint." }, 404));
 app.onError((err, c) => {

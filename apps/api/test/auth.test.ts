@@ -67,19 +67,35 @@ describe("createVerifier", () => {
   const verifier = () => createVerifier({ keys: jwks, audience: AUD, issuer: ISS });
 
   test("verifies a valid token and extracts the Sunday claims", async () => {
-    const token = await sign({ sub: "acct_42", church_ids: ["ch_1", "ch_2"], app_grants: ["song:read", "stage"] });
+    // app_grants is the per-church map the SundayPlan token hook stamps.
+    const token = await sign({
+      sub: "acct_42",
+      church_ids: ["ch_1", "ch_2"],
+      app_grants: { ch_1: ["stage", "song"], ch_2: ["plan"] },
+    });
     const claims = await verifier()(token);
     expect(claims.sub).toBe("acct_42");
     expect(claims.church_ids).toEqual(["ch_1", "ch_2"]);
-    expect(claims.app_grants).toEqual(["song:read", "stage"]);
+    expect(claims.app_grants).toEqual({ ch_1: ["stage", "song"], ch_2: ["plan"] });
     expect(claims.raw.aud).toBe(AUD);
   });
 
-  test("coerces absent / scalar church_ids + app_grants to arrays", async () => {
+  test("coerces absent / scalar church_ids to array and missing/malformed app_grants to {}", async () => {
     const token = await sign({ sub: "acct_1", church_ids: "ch_solo" }); // no app_grants
     const claims = await verifier()(token);
     expect(claims.church_ids).toEqual(["ch_solo"]);
-    expect(claims.app_grants).toEqual([]);
+    expect(claims.app_grants).toEqual({});
+
+    // A flat array (the old wrong shape) is malformed for a map → {}; a non-string
+    // app within a church is dropped.
+    const token2 = await sign({
+      sub: "acct_2",
+      app_grants: { ch_1: ["stage", 5], bad: "nope" } as unknown as Record<string, string[]>,
+    });
+    const claims2 = await verifier()(token2);
+    expect(claims2.app_grants).toEqual({ ch_1: ["stage"] });
+    const token3 = await sign({ sub: "acct_3", app_grants: ["stage"] as unknown as Record<string, string[]> });
+    expect((await verifier()(token3)).app_grants).toEqual({});
   });
 
   test("rejects an expired token", async () => {
