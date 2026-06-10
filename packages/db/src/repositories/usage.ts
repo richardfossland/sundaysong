@@ -11,7 +11,9 @@ export interface LogUsageInput {
   idempotency_key: string;
 }
 
-/** Record a use. Idempotent on `idempotency_key` — a re-sent event is a no-op. */
+/** Record a use. Idempotent per church on `idempotency_key` — a re-sent event is
+ *  a no-op, but the SAME key from a DIFFERENT church is a distinct event (the
+ *  key is derived from church-local service/item ids). */
 export async function logUsage(sql: Executor, input: LogUsageInput): Promise<{ logged: boolean }> {
   const rows = await sql<Array<{ id: string }>>`
     insert into usage_log (
@@ -21,7 +23,7 @@ export async function logUsage(sql: Executor, input: LogUsageInput): Promise<{ l
       ${input.church_id}, ${input.song_id}, ${input.variant_id ?? null}, ${input.service_date},
       ${input.duration_displayed_sec ?? null}, ${input.was_streamed ?? false}, ${input.idempotency_key}
     )
-    on conflict (idempotency_key) do nothing
+    on conflict (church_id, idempotency_key) do nothing
     returning id
   `;
   return { logged: rows.length > 0 };
