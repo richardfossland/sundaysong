@@ -2,7 +2,7 @@ import { describe, expect, test, beforeAll } from "bun:test";
 import { Hono } from "hono";
 import { SignJWT, exportJWK, generateKeyPair, createLocalJWKSet, type KeyLike, type JWK } from "jose";
 
-import { createVerifier, requireAuth, requireChurch, getClaims, extractBearer } from "../src/middleware/auth";
+import { createVerifier, requireAuth, requireChurch, requireSongAdmin, hasSongAdminGrant, getClaims, extractBearer } from "../src/middleware/auth";
 
 /**
  * Unit tests use a locally generated RS256 keypair fed through a JWKS — no
@@ -176,5 +176,57 @@ describe("requireChurch middleware", () => {
     const token = await sign({ sub: "acct_1", church_ids: ["ch_1"] });
     const res = await req(app((_c) => undefined), { authorization: `Bearer ${token}` });
     expect(res.status).toBe(400);
+  });
+});
+
+describe("requireSongAdmin (the song_admin app-grant gate)", () => {
+  function adminApp(pinned?: string) {
+    const app = new Hono();
+    const verify = createVerifier({ keys: jwks, audience: AUD, issuer: ISS });
+    app.get("/admin", requireAuth(verify), requireSongAdmin(pinned), (c) =>
+      c.json({ ok: true, sub: getClaims(c)?.sub }),
+    );
+    return app;
+  }
+
+  test("403 for a valid token WITHOUT the grant (the audit hole, closed)", async () => {
+    const token = await sign({ church_ids: ["c1"], app_grants: { c1: ["song", "plan"] } });
+    const res = await adminApp().request("/admin", {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    expect(res.status).toBe(403);
+  });
+
+  test("200 for a valid token WITH song_admin in any church", async () => {
+    const token = await sign({ church_ids: ["c1"], app_grants: { c1: ["song", "song_admin"] } });
+    const res = await adminApp().request("/admin", {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    expect(res.status).toBe(200);
+  });
+
+  test("401 without any token (requireAuth still first)", async () => {
+    const res = await adminApp().request("/admin");
+    expect(res.status).toBe(401);
+  });
+
+  test("pinned church: a grant in a DIFFERENT church does not qualify", async () => {
+    const token = await sign({ church_ids: ["c1", "c2"], app_grants: { c2: ["song_admin"] } });
+    const res = await adminApp("c1").request("/admin", {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    expect(res.status).toBe(403);
+    const ok = await sign({ church_ids: ["c1"], app_grants: { c1: ["song_admin"] } });
+    const res2 = await adminApp("c1").request("/admin", {
+      headers: { Authorization: `Bearer ${ok}` },
+    });
+    expect(res2.status).toBe(200);
+  });
+
+  test("hasSongAdminGrant is defensive about claim shapes", () => {
+    expect(hasSongAdminGrant({ sub: "u", church_ids: [], app_grants: {} })).toBe(false);
+    expect(
+      hasSongAdminGrant({ sub: "u", church_ids: ["c"], app_grants: { c: ["song_admin"] } }),
+    ).toBe(true);
   });
 });

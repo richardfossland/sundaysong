@@ -41,7 +41,7 @@ import {
 import { getSql } from "@sundaysong/db";
 import type { Executor } from "@sundaysong/db";
 
-import { createVerifier, getClaims, requireAuth, type Verifier } from "../middleware/auth";
+import { createVerifier, getClaims, requireAuth, requireSongAdmin, type Verifier } from "../middleware/auth";
 
 // ── DI: the store the routes hydrate from ────────────────────────────────────
 
@@ -282,15 +282,21 @@ function configuredVerifier(): { verify: Verifier } | null {
 }
 
 /**
- * Admin-scoped guard: requires a valid Sunday JWT when auth is configured, and
- * is a transparent pass-through when it isn't (dev / existing tests). No church
- * check — the admin surface is platform-global.
+ * Admin-scoped guard: requires a valid Sunday JWT carrying the `song_admin`
+ * app-grant (audit 2026-06-10: bare requireAuth let ANY authenticated user
+ * moderate) when auth is configured, and is a transparent pass-through when it
+ * isn't (dev / existing tests). The admin surface is platform-global, so the
+ * grant qualifies from any church unless `SUNDAY_SONG_ADMIN_CHURCH_ID` pins one.
  */
 export function adminScoped(): MiddlewareHandler {
   return async (c: Context, next: Next) => {
     const cfg = configuredVerifier();
     if (!cfg) return next(); // auth not configured → stay open
-    return requireAuth(cfg.verify)(c, next);
+    let inner: Response | void = undefined;
+    const outer = await requireAuth(cfg.verify)(c, async () => {
+      inner = await requireSongAdmin(Bun.env.SUNDAY_SONG_ADMIN_CHURCH_ID)(c, next);
+    });
+    return outer ?? inner ?? undefined;
   };
 }
 
