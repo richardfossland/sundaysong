@@ -89,15 +89,16 @@ function asGrantMap(v: unknown): Record<string, string[]> {
 }
 
 /**
- * Build a verifier from an injected key set. RS256 only (the Sunday platform
- * signs with RSA), so a token signed with any other algorithm is rejected
+ * Build a verifier from an injected key set. Asymmetric only — ES256 (what
+ * Supabase signs new projects with) or RS256 (RSA-keyed projects); a token
+ * signed with any other algorithm (notably symmetric HS256) is rejected
  * rather than silently trusted. Pure aside from the crypto verify — no I/O of
  * our own, so it's fully unit-testable with a local key.
  */
 export function createVerifier(opts: VerifierOptions): Verifier {
   return async (bearerToken: string): Promise<SundayClaims> => {
     const { payload } = await jwtVerify(bearerToken, opts.keys as Parameters<typeof jwtVerify>[1], {
-      algorithms: ["RS256"],
+      algorithms: ["ES256", "RS256"],
       audience: opts.audience,
       ...(opts.issuer ? { issuer: opts.issuer } : {}),
     });
