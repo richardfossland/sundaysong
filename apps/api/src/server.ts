@@ -7,6 +7,7 @@
  */
 
 import { Hono } from "hono";
+import { reportError } from "./lib/observability";
 import { logger } from "hono/logger";
 import { cors } from "hono/cors";
 
@@ -96,6 +97,12 @@ app.route("/v1/account",      accountRoutes); // Sunday Account SSO whoami (chur
 app.notFound((c) => c.json({ error: "not_found", message: "No such endpoint." }, 404));
 app.onError((err, c) => {
   console.error("[api] unhandled error:", err);
+  // Fire-and-forget: no SENTRY_DSN → no-op, never blocks the response.
+  void reportError(
+    err,
+    { app: "sundaysong-api", extra: { path: c.req.path, method: c.req.method } },
+    Bun.env as Record<string, string | undefined>,
+  );
   return c.json({ error: "internal", message: err.message }, 500);
 });
 
