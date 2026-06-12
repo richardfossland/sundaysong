@@ -1,0 +1,27 @@
+# Fly.io config for the SundaySong API (Hono on Bun, Dockerfile.api).
+# Deploy steps: see DEPLOY.md → "Fly.io (API)".
+
+app = "sundaysong-api"
+primary_region = "arn"
+
+[build]
+  dockerfile = "Dockerfile.api"
+
+[env]
+  PORT = "3001"
+
+[http_service]
+  internal_port = 3001
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+
+  # Shallow liveness probe — answers 200 without DB/search so cold-started
+  # machines pass immediately. Deep dependency status: GET /health/deep.
+  [[http_service.checks]]
+    method = "GET"
+    path = "/health"
+    interval = "30s"
+    timeout = "5s"
+    grace_period = "10s"

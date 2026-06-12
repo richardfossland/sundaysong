@@ -63,9 +63,15 @@ app.use("/v1/*", rateLimit({
   windowMs: Number(Bun.env.API_RATE_WINDOW_MS ?? 60_000),
 }));
 
+// Shallow liveness — no auth, no DB, no search. This is what Fly.io's
+// http_service check hits: it must answer 200 as soon as the process serves,
+// even when the database is unreachable (machines would otherwise never pass
+// their grace period and the app could not cold-start).
+app.get("/health", (c) => c.json({ ok: true, version: "0.1.0" }));
+
 // Deep health — reports DB + search reachability so a load balancer / uptime
 // check sees a real picture, not just "the process is up".
-app.get("/health", async (c) => {
+app.get("/health/deep", async (c) => {
   const checks: Record<string, "ok" | "down"> = { db: "down", search: "down" };
   try { await getSql()`select 1`; checks.db = "ok"; } catch { /* stays down */ }
   try { const h = await new MeiliClient().health(); if (h.status === "available") checks.search = "ok"; } catch { /* stays down */ }
