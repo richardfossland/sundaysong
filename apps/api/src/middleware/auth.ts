@@ -155,6 +155,50 @@ export function requireAuth(verify: Verifier): MiddlewareHandler {
  * For body-scoped routes (the church id lives in the JSON body) pass a
  * `resolve` that returns it — keep it cheap and synchronous-feeling.
  */
+/**
+ * The reserved app-grant value that marks a Sunday user as a SundaySong
+ * moderator/admin. Granted per church in SundayPlan's `app_grant` table
+ * (migration 0018) and stamped into `app_grants` by the token hook — no
+ * dedicated JWT claim, the existing pipeline carries it end to end.
+ */
+export const SONG_ADMIN_GRANT = "song_admin";
+
+/**
+ * Whether the claims carry the song_admin grant. The admin surface is
+ * platform-global, so a grant in ANY church qualifies by default; set
+ * `SUNDAY_SONG_ADMIN_CHURCH_ID` to pin which church's grants count (e.g. the
+ * operator's own church) once multiple tenants exist.
+ */
+export function hasSongAdminGrant(
+  claims: SundayClaims,
+  pinnedChurchId?: string,
+): boolean {
+  if (pinnedChurchId) {
+    return (claims.app_grants[pinnedChurchId] ?? []).includes(SONG_ADMIN_GRANT);
+  }
+  return Object.values(claims.app_grants).some((apps) => apps.includes(SONG_ADMIN_GRANT));
+}
+
+/**
+ * Hono middleware: require the song_admin grant on already-verified claims.
+ * Mount AFTER `requireAuth`. 401 without claims, 403 without the grant.
+ */
+export function requireSongAdmin(pinnedChurchId?: string): MiddlewareHandler {
+  return async (c: Context, next: Next) => {
+    const claims = getClaims(c);
+    if (!claims) {
+      return c.json({ error: "unauthorized", message: "Authentication required." }, 401);
+    }
+    if (!hasSongAdminGrant(claims, pinnedChurchId)) {
+      return c.json(
+        { error: "forbidden", message: "The song_admin grant is required for admin operations." },
+        403,
+      );
+    }
+    await next();
+  };
+}
+
 export function requireChurch(resolve?: (c: Context) => string | undefined | Promise<string | undefined>): MiddlewareHandler {
   return async (c: Context, next: Next) => {
     const claims = getClaims(c);
