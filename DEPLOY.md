@@ -37,8 +37,17 @@ universal cert.
 2. **Build + push** the two images (web + api). The repo's `docker-compose.yml`
    already wires them together for local dev — mirror those env vars in prod.
 3. **Env / secrets** (per the compose file): `DATABASE_URL` (Supabase Postgres
-   pooler URL), `ANTHROPIC_API_KEY` (Phase-4 AI/embeddings), the Sunday JWKS URL
-   for `requireAuth`, and the web's `NEXT_PUBLIC_API_URL=https://api.sundaysuite.app`.
+   pooler URL), `ANTHROPIC_API_KEY` (Phase-4 AI/embeddings), the Sunday SSO
+   verification env (live issuer = the shared Sunday project, also SundayPlan's
+   backend; auth stays a no-op pass-through until these are set):
+
+   ```
+   SUNDAY_JWKS_URL=https://rkiahljrkormwzogghpc.supabase.co/auth/v1/.well-known/jwks.json
+   SUNDAY_AUTH_AUDIENCE=authenticated
+   SUNDAY_AUTH_ISSUER=https://rkiahljrkormwzogghpc.supabase.co/auth/v1
+   ```
+
+   and the web's `NEXT_PUBLIC_API_URL=https://api.sundaysuite.app`.
 4. **DNS in Cloudflare:** add `song` and `api` records pointing at the host
    (CNAME to the host's hostname, **proxied / orange-cloud**) → free SSL + you
    can put **Cloudflare Access** in front for the test phase.
