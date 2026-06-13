@@ -265,6 +265,64 @@ export interface RecommendSetOutput {
   arc?: SetArc;
 }
 
+// ── Sermon-to-Setlist ───────────────────────────────────────────────────────
+
+export interface RecommendFromSermonInput {
+  manuscript?: string;
+  scripture_refs?: string[];
+  title?: string;
+  language?: string;
+  duration_min?: number;
+  /** When present, each pick gets a CCLI/TONO coverage pill. */
+  profile?: ChurchLicensingProfileLike;
+}
+
+/** Minimal church licensing profile (mirrors @sundaysong/licensing). */
+export interface ChurchLicensingProfileLike {
+  church_id: string;
+  ccli_license_number?: string | null;
+  ccli_size_category?: "A" | "B" | "C" | "D" | "E" | "F" | null;
+  ccli_streaming_addon: boolean;
+  tono_license_status: "none" | "state_church_blanket" | "direct_agreement" | "application_pending" | "not_applicable";
+  tono_customer_id?: string | null;
+  tono_streaming_addon: boolean;
+  denomination: "den_norske_kirke" | "frikirke" | "pinse" | "baptist" | "metodist" | "other";
+}
+
+/** Per-song coverage status (mirrors @sundaysong/licensing SongCoverage). */
+export interface SongCoverageLike {
+  song_id: string;
+  ccli_status: "covered" | "not_covered" | "unknown" | "not_required" | "foreign_reciprocal";
+  tono_status: "covered" | "not_covered" | "unknown" | "not_required" | "foreign_reciprocal";
+  gray_areas: string[];
+}
+
+export interface RecommendFromSermonOutput {
+  /** What the extractor pulled out of the sermon (the basis for the picks). */
+  extract: {
+    themes: string[];
+    scripture: string[];
+    arc: "rising" | "reflective" | "celebration" | "lament" | null;
+    keywords: string[];
+    summary: string;
+    /** "llm" when an Anthropic key was configured, "heuristic" on the keyless path. */
+    source: "llm" | "heuristic";
+  };
+  picks: Array<{
+    song: Song;
+    reason: string;
+    suggested_key?: string;
+    /** CCLI/TONO coverage pill — present only when a `profile` was supplied. */
+    coverage?: SongCoverageLike;
+  }>;
+  total_minutes_estimate: number;
+  summary: string;
+  /** True when an LLM re-ordered + re-explained the picks (Sunday Pro tier). */
+  reranked: boolean;
+  /** The arc the set was sequenced along, echoed back (undefined when none). */
+  arc?: "rising" | "reflective" | "celebration" | "lament";
+}
+
 // ── AI translation draft (Phase 4.2, Sunday Pro) ────────────────────────────
 
 export interface TranslateInput {

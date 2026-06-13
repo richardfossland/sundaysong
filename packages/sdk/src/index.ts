@@ -24,6 +24,8 @@ import type {
   RecommendSeasonOutput,
   RecommendSetInput,
   RecommendSetOutput,
+  RecommendFromSermonInput,
+  RecommendFromSermonOutput,
   LiturgicalSeason,
   LicensingReport,
   TranslateInput,
@@ -133,6 +135,16 @@ export class SundaySong {
     /** AI translation draft (Phase 4.2, Sunday Pro) — PD or your own upload only. */
     translate: (input: TranslateInput): Promise<TranslationDraftResult> =>
       this.request("/v1/songs/translate", { method: "POST", body: JSON.stringify(input) }),
+    /**
+     * Sermon-to-Setlist — give it next Sunday's sermon (manuscript and/or
+     * scripture refs) and get a full catalog-grounded set whose themes,
+     * scripture and energy arc serve the message, with per-song CCLI/TONO
+     * coverage when a licensing profile is supplied. Extraction uses Anthropic
+     * when a key is configured (Sunday Pro) and degrades to a keyword heuristic
+     * otherwise — the set always comes back. Calls POST /v1/recommend/from-sermon.
+     */
+    recommendFromSermon: (input: RecommendFromSermonInput): Promise<RecommendFromSermonOutput> =>
+      this.request("/v1/recommend/from-sermon", { method: "POST", body: JSON.stringify(input) }),
   };
 
   readonly recommend = Object.assign(
@@ -421,4 +433,4 @@ export interface UsageLogPayload {
   idempotency_key: string;
 }
 
-export type { Song, SongVariant, SearchHit, RecommendInput, RecommendOutput, RecommendAfterInput, RecommendAfterOutput, RecommendSeasonInput, RecommendSeasonOutput, RecommendSetInput, RecommendSetOutput, LiturgicalSeason, LicensingReport, SongSection, NordicMetadata, TranslateInput, TranslationDraftResult };
+export type { Song, SongVariant, SearchHit, RecommendInput, RecommendOutput, RecommendAfterInput, RecommendAfterOutput, RecommendSeasonInput, RecommendSeasonOutput, RecommendSetInput, RecommendSetOutput, RecommendFromSermonInput, RecommendFromSermonOutput, LiturgicalSeason, LicensingReport, SongSection, NordicMetadata, TranslateInput, TranslationDraftResult };

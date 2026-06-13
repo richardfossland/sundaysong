@@ -1,12 +1,13 @@
 "use client";
 
 import { useState, type ComponentType } from "react";
-import { Sparkles, Shuffle, CalendarDays, ListMusic, Disc3, type LucideIcon } from "lucide-react";
+import { Sparkles, Shuffle, CalendarDays, ListMusic, Disc3, ScrollText, type LucideIcon } from "lucide-react";
 import { RecommendationBuilder } from "./RecommendationBuilder";
 import { AfterBuilder } from "./AfterBuilder";
 import { SeasonBuilder } from "./SeasonBuilder";
 import { SetBuilder } from "./SetBuilder";
 import { FlowBuilder } from "./FlowBuilder";
+import { SermonBuilder } from "./SermonBuilder";
 
 /**
  * One recommendation surface, five modes. Replaces the old five separate
@@ -14,7 +15,7 @@ import { FlowBuilder } from "./FlowBuilder";
  * builder panels) with a single icon-tabbed workspace. Deep links still work:
  * the page reads `?mode=` and the tabs keep the URL in sync via replaceState.
  */
-type Mode = "theme" | "after" | "season" | "set" | "flow";
+type Mode = "theme" | "sermon" | "after" | "season" | "set" | "flow";
 
 interface ModeDef {
   id: Mode;
@@ -36,6 +37,15 @@ const MODES: ModeDef[] = [
     sub: "Tell the planner the theme, scripture or moment — or a song to flow on from — and get a ranked set with explanations, key-flow and a duration estimate.",
     Builder: RecommendationBuilder,
     note: "Suggestions are grounded in the real catalog. Sunday Pro adds AI re-ranking on top of the music-theory key-flow and energy-arc sequencing.",
+  },
+  {
+    id: "sermon",
+    tab: "Sermon",
+    icon: ScrollText,
+    title: "Songs for the sermon",
+    sub: "Paste next Sunday's sermon — manuscript and/or its scripture texts — and SundaySong pulls out the themes, scripture, energy arc and keywords, then builds a catalog-grounded set that serves the message, with a CCLI/TONO coverage pill per song.",
+    Builder: SermonBuilder,
+    note: "Theme extraction uses Anthropic on Sunday Pro and degrades to a keyword heuristic with no key — either way the set comes back, grounded in the real catalog. Songs are never invented; the model only suggests the themes.",
   },
   {
     id: "after",
