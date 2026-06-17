@@ -71,6 +71,20 @@ export {
   rerankPicks,
 } from "./rerank";
 export {
+  type SermonArc,
+  type SermonExtract,
+  type SermonExtractRequest,
+  SERMON_SYSTEM_PROMPT,
+  extractScriptureRefs,
+  keywordCandidates,
+  guessArc,
+  heuristicExtract,
+  buildSermonPrompt,
+  parseSermonResponse,
+  extractSermon,
+  sermonToRecommendRequest,
+} from "./sermon";
+export {
   type SeasonDefinition,
   type SeasonCandidate,
   type SeasonPick,

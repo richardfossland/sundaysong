@@ -25,6 +25,7 @@ import { translateRoutes } from "./routes/translate";
 import { recommendAfterRoutes } from "./routes/recommendAfter";
 import { recommendSeasonRoutes } from "./routes/recommendSeason";
 import { recommendSetRoutes } from "./routes/recommendSet";
+import { recommendFromSermonRoutes } from "./routes/recommendFromSermon";
 import { adminRoutes } from "./routes/admin";
 import { accountRoutes } from "./routes/account";
 import { rateLimit } from "./middleware/rateLimit";
@@ -85,6 +86,7 @@ app.route("/v1/songs",            songsRoutes);
 app.route("/v1/recommend/after",  recommendAfterRoutes);  // before /v1/recommend so it matches first
 app.route("/v1/recommend/season", recommendSeasonRoutes); // before /v1/recommend so it matches first
 app.route("/v1/recommend/set",    recommendSetRoutes);    // before /v1/recommend so it matches first
+app.route("/v1/recommend/from-sermon", recommendFromSermonRoutes); // before /v1/recommend so it matches first
 app.route("/v1/recommend",        recommendRoutes);
 app.route("/v1/usage",        usageRoutes);
 app.route("/v1/licensing",    licensingRoutes);

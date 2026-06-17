@@ -404,3 +404,56 @@ export const CoverageInputSchema = z.object({
   }),
   profile: ChurchLicensingProfileSchema,
 });
+
+// ── Sermon-to-Setlist (use case: "give me songs that serve next Sunday's sermon") ─
+
+/**
+ * POST /v1/recommend/from-sermon — take a sermon manuscript and/or explicit
+ * scripture refs, extract themes/scripture/arc/keywords (LLM with a key,
+ * keyword heuristic without), and feed the existing retrieval+rank+arc pipeline.
+ * Optionally overlay CCLI/TONO coverage per song when a licensing `profile` is
+ * given. At least one of `manuscript` / `scripture_refs` must be present.
+ */
+export const RecommendFromSermonInputSchema = z
+  .object({
+    manuscript: z.string().max(40000).optional(),
+    scripture_refs: z.array(z.string().min(1).max(120)).max(40).optional(),
+    title: z.string().max(300).optional(),
+    language: z.string().max(8).optional(),
+    duration_min: z.number().int().min(1).max(240).optional(),
+    /** When present, each pick is annotated with a CCLI/TONO coverage pill. */
+    profile: ChurchLicensingProfileSchema.optional(),
+  })
+  .refine((d) => Boolean(d.manuscript?.trim()) || (d.scripture_refs?.length ?? 0) > 0, {
+    message: "provide a sermon manuscript or at least one scripture reference",
+  });
+
+/**
+ * Extended schema used only by the API route. Adds `_picks` (mirroring
+ * {@link RecommendRouteSchema}) so the route's extract→rank→arc→coverage logic
+ * can be unit-tested offline with a fully-hydrated candidate pool — no DB,
+ * embedder or LLM. Never set in production.
+ */
+export const RecommendFromSermonRouteSchema = z
+  .object({
+    manuscript: z.string().max(40000).optional(),
+    scripture_refs: z.array(z.string().min(1).max(120)).max(40).optional(),
+    title: z.string().max(300).optional(),
+    language: z.string().max(8).optional(),
+    duration_min: z.number().int().min(1).max(240).optional(),
+    profile: ChurchLicensingProfileSchema.optional(),
+    _picks: z
+      .array(
+        z.object({
+          song: z.object({ id: z.string() }).passthrough(),
+          semantic_score: z.number().min(0).max(1).default(0),
+          key: z.string().nullable().optional(),
+          bpm: z.number().nullable().optional(),
+        }),
+      )
+      .optional(),
+  })
+  .refine(
+    (d) => Boolean(d.manuscript?.trim()) || (d.scripture_refs?.length ?? 0) > 0 || (d._picks?.length ?? 0) > 0,
+    { message: "provide a sermon manuscript or at least one scripture reference" },
+  );
