@@ -148,7 +148,7 @@ export function CoverageChecker() {
           </div>
         </div>
 
-        {error && <div className="err">⚠ {error}</div>}
+        {error && <div className="err" role="alert">{error}</div>}
 
         {result && ccliV && tonoV && (
           <div>

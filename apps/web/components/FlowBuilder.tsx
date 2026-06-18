@@ -91,12 +91,13 @@ export function FlowBuilder() {
         </div>
 
         <div className="row" style={{ alignItems: "center" }}>
-          <button className="btn" type="submit" disabled={busy}>
+          <button className="btn btn-primary" type="submit" disabled={busy} aria-busy={busy}>
+            {busy && <span className="spinner" aria-hidden />}
             {busy ? "Reading the keys…" : "Show what flows next"}
           </button>
         </div>
 
-        {error && <div className="err">⚠ {error}</div>}
+        {error && <div className="err" role="alert">{error}</div>}
       </form>
 
       {result && (

@@ -38,7 +38,7 @@ export default async function SourcesPage() {
       </div>
 
       {"error" in res ? (
-        <p className="err">⚠ {res.error}</p>
+        <p className="err" role="alert">{res.error}</p>
       ) : (
         <ul className="source-list">
           {res.sources.map((s) => (

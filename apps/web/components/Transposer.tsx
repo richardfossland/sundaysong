@@ -77,7 +77,11 @@ export function Transposer() {
           </span>
         </div>
 
-        {error && <div className="err">⚠ {error} — is the API running on {process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001"}?</div>}
+        {error && (
+          <div className="err" role="alert">
+            {error} — is the API running on {process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001"}?
+          </div>
+        )}
 
         {result?.chords && (
           <div>

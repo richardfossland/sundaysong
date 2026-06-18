@@ -1,7 +1,31 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
+import { Playfair_Display, Hanken_Grotesk, JetBrains_Mono } from "next/font/google";
 import { Search, Sparkles, Music, Scale, Library, Upload, Info } from "lucide-react";
 import "./globals.css";
+
+// Sunday suite brand fonts — Playfair Display (display/wordmark) + Hanken Grotesk
+// (body), with JetBrains Mono kept for chords/labels. Loaded via next/font so
+// they self-host (no render-blocking <link> to Google) and expose CSS variables.
+const display = Playfair_Display({
+  variable: "--font-playfair",
+  subsets: ["latin"],
+  weight: ["500", "600", "700"],
+  style: ["normal", "italic"],
+  display: "swap",
+});
+const body = Hanken_Grotesk({
+  variable: "--font-hanken",
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  display: "swap",
+});
+const mono = JetBrains_Mono({
+  variable: "--font-jetbrains",
+  subsets: ["latin"],
+  weight: ["400", "500"],
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   title: "SundaySong — worship song intelligence",
@@ -11,15 +35,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en">
-      <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link
-          href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400..600;1,9..144,400..500&family=Newsreader:ital,opsz,wght@0,6..72,400..500;1,6..72,400&family=JetBrains+Mono:wght@400;500&display=swap"
-          rel="stylesheet"
-        />
-      </head>
+    <html lang="en" className={`${display.variable} ${body.variable} ${mono.variable}`}>
       <body>
         <header className="masthead">
           <a className="wordmark" href="/">

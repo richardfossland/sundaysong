@@ -13,15 +13,22 @@
   --ink-faint:  #8a7c6c;
   --ember:      #b1431c;
   --ember-deep: #8c3214;
-  --gold:       #b8862c;
+  /* Suite-canonical gold (#EBB84B) — harmonized with chess/plan/the marketing
+     site. Deep variant keeps AA-contrast text on the warm paper. */
+  --gold:        #ebb84b;
+  --gold-light:  #f2d58a;
+  --gold-deep:   #d4a23a;
+  --gold-ink:    #8a6313; /* gold text dark enough for AA on paper */
   --pine:       #1f3d34;
   --pine-soft:  #355b4f;
   --line:       rgba(27, 22, 18, 0.16);
   --line-soft:  rgba(27, 22, 18, 0.08);
 
-  --font-display: "Fraunces", Georgia, serif;
-  --font-body:    "Newsreader", Georgia, serif;
-  --font-mono:    "JetBrains Mono", ui-monospace, monospace;
+  /* Fonts come from next/font (self-hosted) via CSS variables set on <html>;
+     these fall back gracefully if the variable is somehow unset. */
+  --font-display: var(--font-playfair, "Playfair Display"), Georgia, serif;
+  --font-body:    var(--font-hanken, "Hanken Grotesk"), system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono:    var(--font-jetbrains, "JetBrains Mono"), ui-monospace, monospace;
 
   --shadow-page: 0 1px 0 rgba(255,255,255,0.5) inset, 0 30px 60px -30px rgba(27,22,18,0.35);
   --maxw: 1180px;
@@ -30,6 +37,26 @@
 * { box-sizing: border-box; }
 
 html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+
+/* Keyboard focus ring — gold, only on keyboard nav (never on mouse click).
+   Mirrors the suite reference (chess) so every interactive element is reachable
+   and clearly highlighted for keyboard + AT users. */
+:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--gold) 55%, transparent);
+  border-radius: 2px;
+}
+a:focus-visible { box-shadow: 0 0 0 3px color-mix(in srgb, var(--gold) 55%, transparent); }
+
+/* Respect users who ask for less motion — collapse all animation/transition. */
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
 
 body {
   margin: 0;
@@ -202,20 +229,23 @@ label.field { display: block; }
   margin-bottom: 7px;
 }
 
-input[type="text"], textarea, select {
+input[type="text"], input[type="email"], input[type="number"], textarea, select {
   width: 100%;
+  min-width: 0; /* let inputs shrink below intrinsic size on narrow screens */
   font-family: var(--font-mono);
-  font-size: 0.95rem;
+  font-size: 16px; /* ≥16px stops iOS Safari auto-zoom on focus */
   color: var(--ink);
   background: var(--paper);
   border: 1px solid var(--line);
   border-radius: 0;
-  padding: 11px 13px;
+  padding: 12px 13px;
+  min-height: 44px; /* comfortable touch target */
   outline: none;
   transition: border-color 0.18s ease, box-shadow 0.18s ease;
 }
 textarea { font-family: var(--font-mono); line-height: 1.7; resize: vertical; min-height: 96px; }
-input[type="text"]:focus, textarea:focus, select:focus {
+input[type="text"]:focus, input[type="email"]:focus, input[type="number"]:focus,
+textarea:focus, select:focus {
   border-color: var(--ember);
   box-shadow: 0 0 0 3px rgba(177,67,28,0.14);
 }
@@ -229,14 +259,57 @@ input[type="text"]:focus, textarea:focus, select:focus {
   color: var(--paper);
   border: 1px solid var(--ink);
   padding: 13px 22px;
+  min-height: 44px; /* comfortable touch target (WCAG 2.5.5) */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
   cursor: pointer;
-  transition: background 0.18s ease, transform 0.06s ease;
+  transition: background 0.18s ease, transform 0.06s ease, color 0.18s ease;
 }
 .btn:hover { background: var(--ember-deep); border-color: var(--ember-deep); }
 .btn:active { transform: translateY(1px); }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .btn-ghost { background: transparent; color: var(--ink); }
 .btn-ghost:hover { background: var(--paper-3); color: var(--ink); }
+
+/* Primary call-to-action — solid suite gold with dark ink text (AA-contrast).
+   Use for the main submit on a form; secondary actions stay on the ink .btn. */
+.btn-primary {
+  background: var(--gold);
+  color: var(--ink);
+  border-color: var(--gold-deep);
+}
+.btn-primary:hover { background: var(--gold-light); border-color: var(--gold-deep); color: var(--ink); }
+.btn-primary:disabled:hover { background: var(--gold); }
+
+/* Centered loading row (route-level loading.tsx). */
+.loading-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 80px 0;
+  color: var(--ink-soft);
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.loading-state .spinner { width: 1.1em; height: 1.1em; }
+
+/* Inline spinner shown inside busy submit buttons. */
+.spinner {
+  width: 0.95em;
+  height: 0.95em;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+  animation: spin 0.6s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
 
 .seg { display: inline-flex; border: 1px solid var(--ink); }
 .seg button {
@@ -339,7 +412,28 @@ input[type="text"]:focus, textarea:focus, select:focus {
 .stack { display: flex; flex-direction: column; gap: 16px; }
 .row { display: flex; gap: 14px; align-items: flex-end; flex-wrap: wrap; }
 .muted { color: var(--ink-faint); }
-.err { color: var(--ember-deep); font-family: var(--font-mono); font-size: 0.85rem; }
+
+/* Consistent inline error — a small styled box (left ember rule + faint tint)
+   rather than a bare red line, used wherever a request or validation fails. */
+.err {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  color: var(--ember-deep);
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  line-height: 1.5;
+  background: rgba(177, 67, 28, 0.07);
+  border: 1px solid rgba(177, 67, 28, 0.28);
+  border-left: 3px solid var(--ember);
+  padding: 10px 13px;
+}
+.err::before {
+  content: "⚠";
+  font-size: 0.95em;
+  line-height: 1.5;
+  flex-shrink: 0;
+}
 
 .colophon {
   border-top: 1px solid var(--ink);

@@ -99,12 +99,13 @@ export function SermonBuilder() {
         </div>
 
         <div className="row" style={{ alignItems: "center" }}>
-          <button className="btn" type="submit" disabled={busy}>
+          <button className="btn btn-primary" type="submit" disabled={busy} aria-busy={busy}>
+            {busy && <span className="spinner" aria-hidden />}
             {busy ? "Bygger settet…" : "Foreslå lovsanger til prekenen"}
           </button>
         </div>
 
-        {error && <div className="err">⚠ {error}</div>}
+        {error && <div className="err" role="alert">{error}</div>}
       </form>
 
       {result && <SermonResult out={result} />}

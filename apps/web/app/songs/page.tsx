@@ -128,7 +128,7 @@ export default async function SongsSearchPage({
       </p>
 
       {result.kind === "error" && (
-        <p className="err" style={{ marginTop: 22 }}>⚠ {result.message}</p>
+        <p className="err" role="alert" style={{ marginTop: 22 }}>{result.message}</p>
       )}
 
       {result.kind === "idle" && (
