@@ -53,7 +53,7 @@ importers:
     dependencies:
       '@hono/zod-validator':
         specifier: ^0.4.0
-        version: 0.4.3(hono@4.12.23)(zod@3.25.76)
+        version: 0.4.3(hono@4.12.23)(zod@4.4.3)
       '@sundaysong/ai':
         specifier: workspace:*
         version: link:../../packages/ai
@@ -82,8 +82,8 @@ importers:
         specifier: ^6.2.3
         version: 6.2.3
       zod:
-        specifier: ^3.24.0
-        version: 3.25.76
+        specifier: ^4.4.3
+        version: 4.4.3
     devDependencies:
       '@types/bun':
         specifier: ^1.1.0
@@ -263,8 +263,8 @@ importers:
   packages/shared:
     dependencies:
       zod:
-        specifier: ^3.24.0
-        version: 3.25.76
+        specifier: ^4.4.3
+        version: 4.4.3
     devDependencies:
       '@types/bun':
         specifier: ^1.1.0
@@ -653,8 +653,8 @@ packages:
   undici-types@6.21.0:
     resolution: {integrity: sha512-iwDZqg0QAGrg9Rav5H4n0M64c3mkR59cJ6wQp+7C4nI0gsmExaedaYLNO44eT4AtBBwjbTiGPMlt2Md0T9H9JQ==}
 
-  zod@3.25.76:
-    resolution: {integrity: sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ==}
+  zod@4.4.3:
+    resolution: {integrity: sha512-ytENFjIJFl2UwYglde2jchW2Hwm4GJFLDiSXWdTrJQBIN9Fcyp7n4DhxJEiWNAJMV1/BqWfW/kkg71UDcHJyTQ==}
 
 snapshots:
 
@@ -663,10 +663,10 @@ snapshots:
       tslib: 2.8.1
     optional: true
 
-  '@hono/zod-validator@0.4.3(hono@4.12.23)(zod@3.25.76)':
+  '@hono/zod-validator@0.4.3(hono@4.12.23)(zod@4.4.3)':
     dependencies:
       hono: 4.12.23
-      zod: 3.25.76
+      zod: 4.4.3
 
   '@img/colour@1.1.0':
     optional: true
@@ -949,4 +949,4 @@ snapshots:
 
   undici-types@6.21.0: {}
 
-  zod@3.25.76: {}
+  zod@4.4.3: {}
