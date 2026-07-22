@@ -11,7 +11,7 @@
     "test": "bun test"
   },
   "dependencies": {
-    "@hono/zod-validator": "^0.4.0",
+    "@hono/zod-validator": "^0.9.0",
     "@sundaysong/ai": "workspace:*",
     "@sundaysong/db": "workspace:*",
     "@sundaysong/licensing": "workspace:*",
@@ -19,8 +19,8 @@
     "@sundaysong/music": "workspace:*",
     "@sundaysong/search": "workspace:*",
     "@sundaysong/shared": "workspace:*",
-    "hono": "^4.6.0",
-    "jose": "^6.2.3",
+    "hono": "^4.12.31",
+    "jose": "^6.2.4",
     "zod": "^3.24.0"
   },
   "devDependencies": {
