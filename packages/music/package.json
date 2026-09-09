@@ -11,7 +11,7 @@
     "build":     "echo no-build"
   },
   "devDependencies": {
-    "@types/bun": "^1.4.0",
+    "@types/bun": "^1.4.1",
     "typescript": "^5.7.0"
   }
 }

@@ -11,5 +11,5 @@
     "build":     "echo no-build"
   },
   "dependencies": { "zod": "^3.24.0" },
-  "devDependencies": { "@types/bun": "^1.4.0", "typescript": "^5.7.0" }
+  "devDependencies": { "@types/bun": "^1.4.1", "typescript": "^5.7.0" }
 }
