@@ -40,7 +40,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         <main className="page">{children}</main>
         <footer className="colophon">
           <div>
-            <div className="mono">Sunday Suite</div>
+            <div className="mono">SundaySuite</div>
             <p style={{ maxWidth: "44ch", marginTop: 8 }}>
               Part of the Sunday suite, alongside SundayRec, SundayStage and SundayPlan.
               We catalog and link — we don't host other people's content.
