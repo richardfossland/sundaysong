@@ -65,9 +65,9 @@ const schemaVersionField = z.literal(SCHEMA_VERSION).default(SCHEMA_VERSION);
  */
 export const UsageEvent = z.object({
   schema_version: schemaVersionField,
-  church_id: z.string().uuid(),
-  song_id: z.string().uuid(),
-  variant_id: z.string().uuid().nullable(),
+  church_id: z.guid(),
+  song_id: z.guid(),
+  variant_id: z.guid().nullable(),
   /** ISO calendar date YYYY-MM-DD. */
   service_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   duration_displayed_sec: z.number().int().min(0).nullable(),
@@ -131,7 +131,7 @@ export const RecommendInputSchema = z.object({
   theme: z.string().optional(),
   scripture: z.string().optional(),
   description: z.string().max(2000).optional(),
-  after_song_id: z.string().uuid().optional(),
+  after_song_id: z.guid().optional(),
   arc: z.enum(["rising", "reflective", "celebration", "lament"]).optional(),
   duration_min: z.number().int().min(1).max(180).optional(),
   language: z.string().optional(),
@@ -154,7 +154,7 @@ export const RecommendRouteSchema = RecommendInputSchema.extend({
         // The hydrated catalog song the route would return verbatim. Loosely
         // typed (passthrough) so a test fixture only has to fill the fields it
         // asserts on; the route hydrates the whole object back into `picks`.
-        song: z.object({ id: z.string() }).passthrough(),
+        song: z.object({ id: z.string() }).loose(),
         semantic_score: z.number().min(0).max(1).default(0),
         key: z.string().nullable().optional(),
         bpm: z.number().nullable().optional(),
@@ -282,7 +282,7 @@ export const RecommendSetRouteSchema = RecommendSetInputSchema.extend({
 });
 
 export const LicensingReportInputSchema = z.object({
-  church_id: z.string().uuid(),
+  church_id: z.guid(),
   from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
 });
@@ -304,8 +304,8 @@ export const SongUploadInputSchema = z.object({
   bible_refs: z.array(z.string().min(1).max(64)).max(32).optional(),
   key: z.string().max(8).nullable().optional(),
   lyrics_excerpt: z.string().max(2000).nullable().optional(),
-  lyrics_url: z.string().url().max(2000).nullable().optional(),
-  chord_chart_url: z.string().url().max(2000).nullable().optional(),
+  lyrics_url: z.url().max(2000).nullable().optional(),
+  chord_chart_url: z.url().max(2000).nullable().optional(),
   /** Required: "I have the right to share this." */
   license_declaration: z.literal(true),
 });
@@ -399,7 +399,7 @@ export const CoverageInputSchema = z.object({
     tono_registered: z.boolean().default(false),
     nordic_metadata: z
       .object({ copyright_status_no: CopyrightStatusSchema.optional() })
-      .passthrough()
+      .loose()
       .default({}),
   }),
   profile: ChurchLicensingProfileSchema,
@@ -445,7 +445,7 @@ export const RecommendFromSermonRouteSchema = z
     _picks: z
       .array(
         z.object({
-          song: z.object({ id: z.string() }).passthrough(),
+          song: z.object({ id: z.string() }).loose(),
           semantic_score: z.number().min(0).max(1).default(0),
           key: z.string().nullable().optional(),
           bpm: z.number().nullable().optional(),

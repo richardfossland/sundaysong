@@ -10,6 +10,6 @@
     "test":      "bun test",
     "build":     "echo no-build"
   },
-  "dependencies": { "zod": "^3.25.76" },
+  "dependencies": { "zod": "^4.6.7" },
   "devDependencies": { "@types/bun": "^1.4.4" }
 }
