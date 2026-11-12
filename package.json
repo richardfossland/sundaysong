@@ -21,8 +21,8 @@
     "embed":      "pnpm --filter @sundaysong/workers embed"
   },
   "devDependencies": {
-    "turbo": "^2.11.4",
-    "typescript": "^5.7.0"
+    "turbo": "^2.11.10",
+    "typescript": "^5.9.3"
   },
   "packageManager": "pnpm@11.4.0"
 }
